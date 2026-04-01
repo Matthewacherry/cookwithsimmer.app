@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Simmer: Smart Cooking — Meal Plans, Calorie Scanning &amp; Smart Recipes</title>
+  <meta name="description" content="Simmer makes dinner effortless. Get personalized meal plans, scan meals to track calories, and discover smart recipes tailored to your pantry and preferences.">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #fffaf5;
+      color: #2d2d2d;
+      line-height: 1.6;
+    }
+    .hero {
+      background: linear-gradient(135deg, #e0573a 0%, #c8860a 100%);
+      color: white;
+      padding: 60px 20px 50px;
+      text-align: center;
+    }
+    .hero h1 { font-size: 36px; font-weight: 700; margin-bottom: 12px; letter-spacing: -0.5px; }
+    .hero .tagline { font-size: 18px; opacity: 0.93; max-width: 500px; margin: 0 auto 28px; }
+    .hero .cta-btn {
+      display: inline-block; background: white; color: #e0573a;
+      font-size: 16px; font-weight: 600; padding: 14px 32px;
+      border-radius: 30px; text-decoration: none;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .hero .cta-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.15); }
+    .features { max-width: 800px; margin: 0 auto; padding: 50px 20px; }
+    .features h2 { text-align: center; font-size: 24px; color: #2d2d2d; margin-bottom: 36px; }
+    .feature-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 24px; }
+    .feature-card {
+      background: white; border: 1px solid #f0e8e0;
+      border-radius: 14px; padding: 28px 22px; text-align: center;
+    }
+    .feature-card .icon { font-size: 36px; margin-bottom: 12px; }
+    .feature-card h3 { font-size: 17px; color: #e0573a; margin-bottom: 8px; }
+    .feature-card p { font-size: 14px; color: #666; }
+    .pricing { background: #fff5ee; padding: 50px 20px; }
+    .pricing h2 { text-align: center; font-size: 24px; color: #2d2d2d; margin-bottom: 8px; }
+    .pricing .subtitle { text-align: center; color: #888; font-size: 15px; margin-bottom: 32px; }
+    .pricing-grid { max-width: 700px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; }
+    .price-card { background: white; border: 1px solid #f0e8e0; border-radius: 14px; padding: 22px 16px; text-align: center; }
+    .price-card.popular { border-color: #e0573a; box-shadow: 0 0 0 2px #e0573a22; }
+    .price-card .badge { display: inline-block; background: #e0573a; color: white; font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 10px; margin-bottom: 10px; }
+    .price-card h3 { font-size: 15px; color: #2d2d2d; margin-bottom: 6px; }
+    .price-card .price { font-size: 26px; font-weight: 700; color: #e0573a; }
+    .price-card .price span { font-size: 14px; font-weight: 400; color: #999; }
+    .price-card .savings { font-size: 12px; color: #c8860a; font-weight: 600; margin-top: 4px; }
+    .price-card .note { font-size: 12px; color: #aaa; margin-top: 6px; }
+    .support { max-width: 600px; margin: 0 auto; padding: 50px 20px; text-align: center; }
+    .support h2 { font-size: 24px; color: #2d2d2d; margin-bottom: 12px; }
+    .support p { font-size: 15px; color: #666; margin-bottom: 20px; }
+    .support a.email-link {
+      display: inline-block; background: #e0573a; color: white;
+      font-size: 15px; font-weight: 600; padding: 12px 28px;
+      border-radius: 26px; text-decoration: none; transition: background 0.15s;
+    }
+    .support a.email-link:hover { background: #c94d32; }
+    .support .links { margin-top: 20px; font-size: 14px; }
+    .support .links a { color: #e0573a; text-decoration: none; margin: 0 12px; }
+    .support .links a:hover { text-decoration: underline; }
+    .footer { text-align: center; padding: 30px 20px; font-size: 13px; color: #999; border-top: 1px solid #eee; }
+    @media (max-width: 480px) {
+      .hero h1 { font-size: 28px; }
+      .feature-grid { grid-template-columns: 1fr; }
+      .pricing-grid { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="hero">
+    <h1>Simmer: Smart Cooking</h1>
+    <p class="tagline">Personalized meal plans, calorie scanning, and smart recipes — all tailored to your household.</p>
+    <a class="cta-btn" href="https://apps.apple.com/app/simmer-smart-cooking/id6760437212">Download on the App Store</a>
+  </div>
+  <div class="features">
+    <h2>Everything you need to cook smarter</h2>
+    <div class="feature-grid">
+      <div class="feature-card"><div class="icon">📸</div><h3>Meal Scanning</h3><p>Point your camera at any plate and instantly get a calorie and nutrition breakdown.</p></div>
+      <div class="feature-card"><div class="icon">🍽️</div><h3>Smart Meal Plans</h3><p>Get weekly meal plans personalized to your dietary preferences, allergies, and pantry.</p></div>
+      <div class="feature-card"><div class="icon">👨‍👩‍👧‍👦</div><h3>Family Profiles</h3><p>Set up profiles for every household member with individual nutrition goals.</p></div>
+      <div class="feature-card"><div class="icon">🛒</div><h3>Pantry Tracking</h3><p>Scan grocery receipts to auto-detect pantry items. Simmer suggests recipes to match.</p></div>
+      <div class="feature-card"><div class="icon">📊</div><h3>Nutrition Tracking</h3><p>Log meals and track daily calories, protein, and macros for every family member.</p></div>
+      <div class="feature-card"><div class="icon">🎥</div><h3>Video Guides</h3><p>Step-by-step cooking instructions with video walkthroughs and timers.</p></div>
+    </div>
+  </div>
+  <div class="pricing">
+    <h2>Simple, flexible pricing</h2>
+    <p class="subtitle">All plans include a 7-day free trial.</p>
+    <div class="pricing-grid">
+      <div class="price-card"><h3>Solo Monthly</h3><div class="price">$6.99<span>/mo</span></div><div class="note">1 member</div></div>
+      <div class="price-card popular"><div class="badge">Best Value</div><h3>Solo Annual</h3><div class="price">$49.99<span>/yr</span></div><div class="savings">Save 40%</div><div class="note">1 member</div></div>
+      <div class="price-card"><h3>Family Monthly</h3><div class="price">$9.99<span>/mo</span></div><div class="note">Up to 5 members</div></div>
+      <div class="price-card"><h3>Family Annual</h3><div class="price">$99.99<span>/yr</span></div><div class="savings">Save 17%</div><div class="note">Up to 5 members</div></div>
+    </div>
+  </div>
+  <div class="support" id="support">
+    <h2>Need help?</h2>
+    <p>Have a question, issue, or feedback? Our support team is here for you and typically responds within 24 hours.</p>
+    <a class="email-link" href="mailto:support@cookwithsimmer.com">Contact Support</a>
+    <div class="links">
+      <a href="/privacy">Privacy Policy</a>
+      <a href="/terms">Terms of Service</a>
+    </div>
+  </div>
+  <div class="footer">
+    <p>&copy; 2026 Matthew A. Cherry Entertainment, LLC. All rights reserved.</p>
+  </div>
+</body>
+</html>
