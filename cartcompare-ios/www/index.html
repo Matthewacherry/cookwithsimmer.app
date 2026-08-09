@@ -1034,19 +1034,39 @@ function renderTotals(a) {
   const winnerKey = fullCarts.length ? fullCarts[0].store.key : null;
   const maxFull = fullCarts.length ? fullCarts[fullCarts.length - 1].total : null;
 
+  // Same-basket comparison: measure every store against the anchor store
+  // (the one holding your imported prices) on ONLY the items both carry —
+  // apples to apples, with exclusives counted separately.
+  const anchorKey = anchorStoreKey();
+  const anchor = STORES.find(st => st.key === anchorKey);
   for (const r of ranked) {
     const card = document.createElement('div');
     card.className = 'total-card' + (r.store.key === winnerKey ? ' winner' : '');
     let metaHtml;
-    if (r.missing > 0) {
+    if (anchorKey && r.store.key !== anchorKey) {
+      let pairStore = 0, pairAnchor = 0, shared = 0;
+      for (const row of state.rows) {
+        const ps = priceFor(row.item, r.store.key);
+        const pa = priceFor(row.item, anchorKey);
+        if (ps != null && pa != null) { pairStore += ps * row.qty; pairAnchor += pa * row.qty; shared++; }
+      }
+      const excl = state.rows.length - shared;
+      if (shared === 0) {
+        metaHtml = '<div class="meta warn">no overlapping items</div>';
+      } else {
+        const diff = pairAnchor - pairStore;
+        const cmp = diff > 0.005
+          ? '<span style="color:#2e8b57;font-weight:700">saves ' + fmt(diff) + '</span> vs ' + anchor.name
+          : diff < -0.005
+            ? '+' + fmt(-diff) + ' vs ' + anchor.name
+            : 'ties ' + anchor.name;
+        metaHtml = '<div class="meta">same ' + shared + '-item basket: ' + cmp + '</div>' +
+          (excl > 0 ? '<div class="meta warn">' + excl + ' item' + (excl > 1 ? 's' : '') + ' not carried here</div>' : '');
+      }
+    } else if (anchorKey && r.store.key === anchorKey) {
+      metaHtml = '<div class="meta">your prices — comparison baseline</div>';
+    } else if (r.missing > 0) {
       metaHtml = '<div class="meta warn">' + r.missing + ' item' + (r.missing > 1 ? 's' : '') + ' not priced here</div>';
-    } else if (r.store.key === winnerKey && fullCarts.length === 1) {
-      metaHtml = '<div class="meta">only store with every item priced</div>';
-    } else if (r.store.key === winnerKey && maxFull != null && maxFull > r.total) {
-      metaHtml = '<div class="meta">saves ' + fmt(maxFull - r.total) + ' vs priciest</div>';
-    } else if (maxFull != null && winnerKey) {
-      const winnerTotal = fullCarts[0].total;
-      metaHtml = '<div class="meta">+' + fmt(r.total - winnerTotal) + ' vs cheapest</div>';
     } else {
       metaHtml = '<div class="meta">all items priced</div>';
     }
