@@ -1,0 +1,5 @@
+node_modules/
+www/cordova.js
+www/cordova_plugins.js
+.DS_Store
+ios/App/App/public/
