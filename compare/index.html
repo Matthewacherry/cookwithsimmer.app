@@ -52,6 +52,39 @@
     }
     .store-toggles input { accent-color: #e0573a; }
 
+    /* Nearby stores */
+    .nearby { margin-top: 16px; border-top: 1px solid #f4ece4; padding-top: 14px; }
+    .nearby .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .nearby label { font-size: 14px; font-weight: 600; color: #555; }
+    .nearby input {
+      width: 110px; font: inherit; font-size: 15px; padding: 8px 12px;
+      border: 1px solid #e5d9cd; border-radius: 20px; background: #fffdfb;
+    }
+    .nearby input:focus { outline: 2px solid #e0573a55; border-color: #e0573a; }
+    .nearby .status { font-size: 13px; color: #888; margin-top: 8px; }
+    .nearby .status.error { color: #c0392b; }
+    .nearby .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .nearby .chip { background: #f4fbf7; border: 1px solid #cde7d8; border-radius: 12px; font-size: 12px; padding: 3px 10px; color: #2e6b4f; }
+    .nearby .chip.absent { background: #faf4ee; border-color: #eee0d4; color: #999; text-decoration: line-through; }
+
+    /* Cart import */
+    .import-box { margin-top: 14px; border-top: 1px solid #f4ece4; padding-top: 14px; }
+    .import-box[hidden] { display: none; }
+    .import-box select {
+      font: inherit; font-size: 14px; padding: 7px 10px;
+      border: 1px solid #e5d9cd; border-radius: 10px; background: #fffdfb;
+    }
+    .import-box textarea { min-height: 110px; margin-top: 10px; }
+    .import-preview { margin-top: 12px; }
+    .import-preview table { min-width: 0; width: 100%; font-size: 13px; }
+    .import-preview th, .import-preview td { white-space: normal; }
+    .import-preview td.p-name { text-align: left; max-width: 300px; }
+    .import-preview td.p-name .raw { display: block; font-size: 11px; color: #aaa; }
+    .import-preview .match-tag { font-size: 11px; color: #2e8b57; font-weight: 600; }
+    .import-preview .match-tag.new { color: #c8860a; }
+    .import-preview .swap-link { font-size: 11px; color: #e0573a; cursor: pointer; text-decoration: underline; margin-left: 6px; }
+    .import-preview input[type=checkbox] { accent-color: #e0573a; }
+
     /* Totals cards */
     .totals-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
     .total-card { border: 1px solid #f0e8e0; border-radius: 12px; padding: 14px 12px; text-align: center; background: #fffdfb; position: relative; }
@@ -128,7 +161,31 @@
       <div class="controls">
         <button class="btn" id="compareBtn">Compare prices</button>
         <button class="btn secondary" id="sampleBtn">Try a sample list</button>
+        <button class="btn secondary" id="importToggleBtn">📋 Import a cart…</button>
         <button class="btn secondary" id="clearBtn">Clear</button>
+      </div>
+
+      <div class="import-box" id="importBox" hidden>
+        <h2 style="font-size:16px">Import a live cart</h2>
+        <p class="hint">Already have a cart going at Whole Foods, Target, or Instacart? Open the cart page in your browser, select the whole page (Ctrl/Cmd&#8209;A), copy it, and paste it below. We'll pull out the items, quantities, and the <strong>exact prices you're being charged</strong> — so that store's column shows your real prices, not estimates.</p>
+        <label style="font-size:14px;font-weight:600;color:#555">This cart is from:
+          <select id="importStore"></select>
+        </label>
+        <textarea id="importText" placeholder="Paste your copied cart page here…"></textarea>
+        <div class="controls">
+          <button class="btn" id="previewImportBtn">Preview import</button>
+        </div>
+        <div class="import-preview" id="importPreview"></div>
+      </div>
+
+      <div class="nearby">
+        <div class="row">
+          <label for="zipInput">Only compare stores near you:</label>
+          <input id="zipInput" placeholder="ZIP code" inputmode="numeric" maxlength="5" autocomplete="postal-code">
+          <button class="btn secondary" id="zipBtn">Find my stores</button>
+        </div>
+        <div class="status" id="zipStatus"></div>
+        <div class="chips" id="zipResults"></div>
       </div>
       <div class="store-toggles" id="storeToggles"></div>
     </div>
@@ -142,7 +199,7 @@
 
     <div class="panel" id="tablePanel" style="display:none">
       <h2>Line-by-line comparison</h2>
-      <p class="hint">The cheapest store for each item is highlighted. Tap any price to adjust it to your local store — totals update instantly.</p>
+      <p class="hint">The cheapest store for each item is highlighted. Tap any price to adjust it to your local store — totals update instantly. Prices marked <span style="color:#c8860a">●</span> are yours (edited by hand or imported from a live cart).</p>
       <div class="table-scroll"><table id="compareTable"></table></div>
       <div class="unmatched" id="unmatchedBox" style="display:none"></div>
       <p class="disclaimer">Prices are representative estimates for a typical U.S. metro area (updated August 2026), not live store data. Actual prices vary by location, brand, and sales — tap any price to correct it for your area.</p>
@@ -308,7 +365,9 @@ const state = {
   rows: [],          // [{ item, qty }]
   unmatched: [],     // strings
   overrides: {},     // { "itemName|storeKey": price }
+  customItems: [],   // imported products not in the built-in guide
   enabledStores: new Set(STORES.map(s => s.key)),
+  pendingImport: null,
 };
 
 function loadSaved() {
@@ -316,6 +375,8 @@ function loadSaved() {
     const saved = JSON.parse(localStorage.getItem('simmer-cart-compare') || '{}');
     if (saved.listText) document.getElementById('listInput').value = saved.listText;
     if (saved.overrides) state.overrides = saved.overrides;
+    if (Array.isArray(saved.customItems)) state.customItems = saved.customItems;
+    if (saved.zip) document.getElementById('zipInput').value = saved.zip;
     if (Array.isArray(saved.enabledStores) && saved.enabledStores.length) {
       state.enabledStores = new Set(saved.enabledStores.filter(k => STORES.some(s => s.key === k)));
     }
@@ -326,6 +387,8 @@ function persist() {
     localStorage.setItem('simmer-cart-compare', JSON.stringify({
       listText: document.getElementById('listInput').value,
       overrides: state.overrides,
+      customItems: state.customItems,
+      zip: document.getElementById('zipInput').value.trim(),
       enabledStores: [...state.enabledStores],
     }));
   } catch (e) { /* storage unavailable */ }
@@ -364,12 +427,14 @@ function parseLine(raw) {
   return { text: line.trim(), qty };
 }
 
+function allItems() { return ITEMS.concat(state.customItems); }
+
 function matchItem(text) {
   const inputNorm = normalize(text);
   const inputToks = tokens(text);
   if (!inputToks.length) return null;
   let best = null, bestScore = 0;
-  for (const item of ITEMS) {
+  for (const item of allItems()) {
     const candidates = [item.name, ...item.aliases];
     for (const cand of candidates) {
       const candNorm = normalize(cand);
@@ -406,6 +471,320 @@ function buildRows() {
   }
   state.rows = [...rowsByItem.values()];
   state.unmatched = unmatched;
+}
+
+// ---------------------------------------------------------------------------
+// Cart import — parse a copied cart page (Whole Foods/Amazon, Target,
+// Instacart, …) into { name, qty, price } entries.
+// ---------------------------------------------------------------------------
+const NOISE_RE = new RegExp('^(' + [
+  'delete', 'remove', 'save for later', 'saved for later.*', 'move to (cart|list)',
+  'add to (cart|list|registry)', 'compare with similar items?', 'in stock', 'out of stock',
+  'only \\d+ left.*', 'sponsored', 'subtotal.*', 'total.*', 'estimated.*', 'proceed to checkout',
+  'checkout', 'continue.*', 'sign in.*', 'gift.*', 'share', 'see (more|all).*', 'shop .*',
+  'price', 'item', 'items', 'qty', 'quantity', 'update', 'undo', 'added', 'save',
+  'new lower price', 'limited time deal', 'deal', 'coupon.*', 'save \\d+%.*', 'save \\$.*',
+  'free (delivery|shipping|returns).*', 'get it .*', 'fulfilled by .*', 'sold by .*',
+  'ships from .*', 'learn more', 'details', 'apply', 'no thanks', 'edit', 'change',
+  'substitutions?.*', 'best seller', "amazon.?s choice", 'climate pledge friendly',
+  'small business', 'whole foods market', 'amazon fresh', 'your items', 'shopping cart',
+  'cart', 'buy again', 'buy it again', 'deselect all', 'select all', 'checked', 'unchecked',
+  'delivery.*', 'pickup.*', 'shipping.*', 'availability.*', 'add instructions.*',
+].join('|') + ')$', 'i');
+
+const BRAND_PREFIX_RE = /^(365 (by whole foods market)?|whole foods market|good & gather|market pantry|favorite day|signature select|amazon (fresh|brand)|great value|simple truth( organic)?|o organics|private selection|trader joe'?s)[,:\s]+/i;
+const SIZE_ONLY_RE = /^\d+(\.\d+)?\s*(fl\s*oz|oz|lbs?|ct|count|pack|pk|g|kg|ml|l|each|ea|gal|gallon|dozen)\b.{0,12}$/i;
+
+function cleanImportName(line) {
+  let name = line.replace(BRAND_PREFIX_RE, '').replace(/\|/g, ' ').replace(/\s+/g, ' ').trim();
+  name = name.replace(/^[-–—•,.\s]+|[-–—•,\s]+$/g, '');
+  if (name.length > 80) name = name.slice(0, 80).replace(/\s+\S*$/, '') + '…';
+  return name;
+}
+function isNameCandidate(line) {
+  return line.length >= 6 && line.length <= 160 &&
+    /[a-zA-Z].*[a-zA-Z].*[a-zA-Z]/.test(line) &&
+    !/^\$/.test(line) && !/^https?:/i.test(line) &&
+    !SIZE_ONLY_RE.test(line) && !/^\d+(\.\d+)?$/.test(line);
+}
+
+function parseCartText(text) {
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  const entries = [];
+  let pendingName = null, pendingQty = null;
+  const applyQty = q => {
+    if (q < 1 || q > 99) return;
+    if (pendingName) pendingQty = q;
+    else if (entries.length) entries[entries.length - 1].qty = q;
+  };
+  for (const line of lines) {
+    if (line.length > 250) continue;
+    let m;
+    if ((m = line.match(/^(?:qty|quantity):?\s*(\d{1,2})\+?$/i))) { applyQty(+m[1]); continue; }
+    if (/^\d{1,2}$/.test(line)) { applyQty(+line); continue; }
+    if ((m = line.match(/^(\d{1,2})\s*[x×]\s*\$(\d{1,4}\.\d{2})/))) {
+      if (pendingName) {
+        entries.push({ raw: pendingName, price: +m[2], qty: +m[1] });
+        pendingName = null; pendingQty = null;
+      }
+      continue;
+    }
+    if (/^(was|list|reg\.?|typical|compare at)\b/i.test(line)) continue;
+    if (/^\$\d{1,4}(\.\d{1,2})?\s*\//.test(line)) continue;           // "$0.06/Fl Oz"
+    if (/^\(\$/.test(line)) continue;                                  // "($0.22/oz)"
+    if ((m = line.match(/^\$(\d{1,4}(?:,\d{3})*\.\d{2})\b/))) {
+      const price = parseFloat(m[1].replace(/,/g, ''));
+      if (pendingName && price > 0) {
+        entries.push({ raw: pendingName, price, qty: pendingQty || 1 });
+        pendingName = null; pendingQty = null;
+      }
+      continue;
+    }
+    if (NOISE_RE.test(line)) continue;
+    if (isNameCandidate(line)) { pendingName = cleanImportName(line); pendingQty = null; }
+  }
+  return entries.filter(e => e.raw && e.price >= 0.2 && e.price < 500);
+}
+
+// Looser matcher for long product titles ("365 Organic Whole Milk, 128 Fl Oz"):
+// every token of the catalog name/alias must appear in the title.
+function matchForImport(name) {
+  const inputToks = new Set(tokens(name));
+  if (!inputToks.size) return null;
+  let best = null, bestLen = 0, bestCovered = 0;
+  for (const item of allItems()) {
+    for (const cand of [item.name, ...item.aliases]) {
+      const candToks = tokens(cand);
+      if (!candToks.length || !candToks.every(t => inputToks.has(t))) continue;
+      const covered = candToks.length / inputToks.size;
+      if (candToks.length > bestLen || (candToks.length === bestLen && covered > bestCovered)) {
+        best = item; bestLen = candToks.length; bestCovered = covered;
+      }
+    }
+  }
+  return best;
+}
+
+function previewImport() {
+  const text = document.getElementById('importText').value;
+  const storeKey = document.getElementById('importStore').value;
+  const parsed = parseCartText(text);
+  const box = document.getElementById('importPreview');
+  if (!parsed.length) {
+    state.pendingImport = null;
+    box.innerHTML = '<p class="hint" style="color:#c0392b">No items found in that text. Make sure you copied the whole cart page (Ctrl/Cmd&#8209;A on the cart, then copy) and pasted everything.</p>';
+    return;
+  }
+  state.pendingImport = {
+    storeKey,
+    entries: parsed.map(e => {
+      const match = matchForImport(e.raw);
+      return { ...e, match: match ? match.name : null, useMatch: !!match, include: true };
+    }),
+  };
+  renderImportPreview();
+}
+
+function renderImportPreview() {
+  const box = document.getElementById('importPreview');
+  const imp = state.pendingImport;
+  if (!imp) { box.innerHTML = ''; return; }
+  const storeName = STORES.find(s => s.key === imp.storeKey).name;
+  let rows = '';
+  imp.entries.forEach((e, i) => {
+    const displayName = e.useMatch && e.match ? e.match : e.raw;
+    const tag = e.useMatch && e.match
+      ? '<span class="match-tag">matched to price guide</span>' +
+        (e.match !== e.raw ? '<span class="swap-link" data-i="' + i + '">keep my name instead</span>' : '')
+      : '<span class="match-tag new">new item (priced at ' + storeName + ' only)</span>' +
+        (e.match ? '<span class="swap-link" data-i="' + i + '">use “' + e.match + '”</span>' : '');
+    rows += '<tr>' +
+      '<td style="text-align:center"><input type="checkbox" data-i="' + i + '" class="inc-check"' + (e.include ? ' checked' : '') + '></td>' +
+      '<td class="p-name">' + displayName + (displayName !== e.raw ? '<span class="raw">from: ' + e.raw + '</span>' : '') + '<br>' + tag + '</td>' +
+      '<td style="text-align:center">' + e.qty + '</td>' +
+      '<td>' + fmt(e.price) + '</td></tr>';
+  });
+  const count = imp.entries.filter(e => e.include).length;
+  box.innerHTML =
+    '<p class="hint">Found <strong>' + imp.entries.length + ' items</strong> in your ' + storeName +
+    ' cart. Uncheck anything that isn\'t really a grocery item, then import.</p>' +
+    '<div class="table-scroll"><table><thead><tr><th></th><th style="text-align:left">Item</th><th style="text-align:center">Qty</th><th>Your price</th></tr></thead><tbody>' +
+    rows + '</tbody></table></div>' +
+    '<div class="controls"><button class="btn" id="confirmImportBtn">Add ' + count + ' item' + (count === 1 ? '' : 's') + ' to my list</button>' +
+    '<button class="btn secondary" id="cancelImportBtn">Cancel</button></div>';
+
+  box.querySelectorAll('.inc-check').forEach(cb => cb.addEventListener('change', () => {
+    imp.entries[+cb.dataset.i].include = cb.checked;
+    renderImportPreview();
+  }));
+  box.querySelectorAll('.swap-link').forEach(a => a.addEventListener('click', () => {
+    const e = imp.entries[+a.dataset.i];
+    e.useMatch = !e.useMatch;
+    renderImportPreview();
+  }));
+  document.getElementById('confirmImportBtn').addEventListener('click', confirmImport);
+  document.getElementById('cancelImportBtn').addEventListener('click', () => {
+    state.pendingImport = null;
+    renderImportPreview();
+  });
+}
+
+function confirmImport() {
+  const imp = state.pendingImport;
+  if (!imp) return;
+  const included = imp.entries.filter(e => e.include);
+  const listEl = document.getElementById('listInput');
+  const newLines = [];
+  for (const e of included) {
+    let lineName;
+    if (e.useMatch && e.match) {
+      lineName = e.match;
+      state.overrides[e.match + '|' + imp.storeKey] = e.price;
+    } else {
+      lineName = e.raw;
+      let custom = state.customItems.find(c => c.name === e.raw);
+      if (!custom) {
+        custom = { name: e.raw, unit: 'as purchased', aliases: [], custom: true,
+          prices: Object.fromEntries(STORES.map(s => [s.key, null])) };
+        state.customItems.push(custom);
+      }
+      custom.prices[imp.storeKey] = e.price;
+      delete state.overrides[e.raw + '|' + imp.storeKey];
+    }
+    newLines.push(e.qty > 1 ? e.qty + 'x ' + lineName : lineName);
+  }
+  const existing = listEl.value.trim();
+  listEl.value = (existing ? existing + '\n' : '') + newLines.join('\n');
+  state.pendingImport = null;
+  document.getElementById('importText').value = '';
+  document.getElementById('importBox').hidden = true;
+  renderImportPreview();
+  buildRows();
+  persist();
+  render();
+  if (state.rows.length) document.getElementById('resultsPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ---------------------------------------------------------------------------
+// Nearby stores by ZIP — free OpenStreetMap services (Nominatim + Overpass)
+// ---------------------------------------------------------------------------
+const KROGER_BANNERS = ['kroger', 'ralphs', 'fred meyer', 'king soopers', "fry's food", 'frys food',
+  "smith's", 'smiths food', 'qfc', 'quality food center', 'harris teeter', 'food 4 less', 'foods co',
+  'dillons', "baker's", 'gerbes', 'jayc', 'pay less super', 'metro market', "pick 'n save",
+  'pick n save', "mariano's", 'marianos', 'city market'];
+const CHAIN_MATCHERS = [
+  { key: 'wholefoods', test: n => n.includes('whole foods') },
+  { key: 'traderjoes', test: n => n.includes('trader joe') },
+  { key: 'sprouts',    test: n => n.includes('sprouts') },
+  { key: 'gelsons',    test: n => n.includes('gelson') },
+  { key: 'target',     test: n => /(^|\s)target($|\s)/.test(n) },
+  { key: 'kroger',     test: n => KROGER_BANNERS.some(b => n.includes(b)) },
+];
+const SEARCH_RADIUS_METERS = 16000; // ~10 miles
+
+function haversineMiles(lat1, lon1, lat2, lon2) {
+  const R = 3958.8, toRad = d => d * Math.PI / 180;
+  const dLat = toRad(lat2 - lat1), dLon = toRad(lon2 - lon1);
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+async function fetchWithTimeout(url, opts, ms) {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), ms);
+  try {
+    const res = await fetch(url, { ...opts, signal: ctrl.signal });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return await res.json();
+  } finally { clearTimeout(t); }
+}
+
+async function findNearbyStores() {
+  const zipEl = document.getElementById('zipInput');
+  const statusEl = document.getElementById('zipStatus');
+  const resultsEl = document.getElementById('zipResults');
+  const zip = zipEl.value.trim();
+  resultsEl.innerHTML = '';
+  if (!/^\d{5}$/.test(zip)) {
+    statusEl.className = 'status error';
+    statusEl.textContent = 'Please enter a 5-digit U.S. ZIP code.';
+    return;
+  }
+  const btn = document.getElementById('zipBtn');
+  btn.disabled = true;
+  statusEl.className = 'status';
+  statusEl.textContent = 'Locating ' + zip + '…';
+  try {
+    const geo = await fetchWithTimeout(
+      'https://nominatim.openstreetmap.org/search?postalcode=' + zip + '&country=us&format=json&limit=1',
+      { headers: { 'Accept': 'application/json' } }, 10000);
+    if (!geo.length) throw new Error('zip-not-found');
+    const lat = +geo[0].lat, lon = +geo[0].lon;
+
+    statusEl.textContent = 'Scanning grocery stores within 10 miles…';
+    const q = '[out:json][timeout:25];(' +
+      'nwr["shop"="supermarket"](around:' + SEARCH_RADIUS_METERS + ',' + lat + ',' + lon + ');' +
+      'nwr["shop"="department_store"](around:' + SEARCH_RADIUS_METERS + ',' + lat + ',' + lon + ');' +
+      ');out center tags;';
+    let data = null;
+    for (const endpoint of ['https://overpass-api.de/api/interpreter', 'https://overpass.kumi.systems/api/interpreter']) {
+      try {
+        data = await fetchWithTimeout(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: 'data=' + encodeURIComponent(q),
+        }, 30000);
+        break;
+      } catch (err) { /* try next endpoint */ }
+    }
+    if (!data) throw new Error('overpass-down');
+
+    const found = new Map(); // chainKey -> { count, minDist }
+    for (const el of data.elements || []) {
+      const tags = el.tags || {};
+      const label = ((tags.brand || '') + ' ' + (tags.name || '')).toLowerCase();
+      if (!label.trim()) continue;
+      const chain = CHAIN_MATCHERS.find(c => c.test(label));
+      if (!chain) continue;
+      const elat = el.lat != null ? el.lat : (el.center && el.center.lat);
+      const elon = el.lon != null ? el.lon : (el.center && el.center.lon);
+      if (elat == null) continue;
+      const dist = haversineMiles(lat, lon, elat, elon);
+      const cur = found.get(chain.key);
+      if (!cur) found.set(chain.key, { count: 1, minDist: dist });
+      else { cur.count++; cur.minDist = Math.min(cur.minDist, dist); }
+    }
+
+    let chips = '';
+    for (const s of STORES) {
+      const f = found.get(s.key);
+      if (f) {
+        chips += '<span class="chip">' + s.name + ' — ' + f.minDist.toFixed(1) + ' mi' +
+          (f.count > 1 ? ' (+' + (f.count - 1) + ' more)' : '') + '</span>';
+      } else {
+        chips += '<span class="chip absent">' + s.name + '</span>';
+      }
+    }
+    resultsEl.innerHTML = chips;
+
+    if (found.size === 0) {
+      statusEl.textContent = 'No matching chains found within 10 miles of ' + zip + ' — comparing all stores.';
+    } else {
+      state.enabledStores = new Set(found.keys());
+      statusEl.textContent = 'Comparing the ' + found.size + ' chain' + (found.size === 1 ? '' : 's') +
+        ' within 10 miles of ' + zip + '. Toggle stores below to override.';
+      renderToggles();
+      persist();
+      render();
+    }
+  } catch (err) {
+    statusEl.className = 'status error';
+    statusEl.textContent = err.message === 'zip-not-found'
+      ? 'Couldn\'t find that ZIP code — double-check it and try again.'
+      : 'Couldn\'t reach the free store-locator service (it rate-limits occasionally). Please try again in a minute.';
+  } finally {
+    btn.disabled = false;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -475,7 +854,7 @@ function renderTotals(a) {
   grid.innerHTML = '';
   const ranked = a.stores
     .map(s => ({ store: s, total: a.totals[s.key], missing: a.missing[s.key] }))
-    .sort((x, y) => x.total - y.total);
+    .sort((x, y) => (x.missing === 0 ? 0 : 1) - (y.missing === 0 ? 0 : 1) || x.total - y.total);
   const fullCarts = ranked.filter(r => r.missing === 0);
   const winnerKey = fullCarts.length ? fullCarts[0].store.key : null;
   const maxFull = fullCarts.length ? fullCarts[fullCarts.length - 1].total : null;
@@ -485,7 +864,9 @@ function renderTotals(a) {
     card.className = 'total-card' + (r.store.key === winnerKey ? ' winner' : '');
     let metaHtml;
     if (r.missing > 0) {
-      metaHtml = '<div class="meta warn">' + r.missing + ' item' + (r.missing > 1 ? 's' : '') + ' unavailable</div>';
+      metaHtml = '<div class="meta warn">' + r.missing + ' item' + (r.missing > 1 ? 's' : '') + ' not priced here</div>';
+    } else if (r.store.key === winnerKey && fullCarts.length === 1) {
+      metaHtml = '<div class="meta">only store with every item priced</div>';
     } else if (r.store.key === winnerKey && maxFull != null && maxFull > r.total) {
       metaHtml = '<div class="meta">saves ' + fmt(maxFull - r.total) + ' vs priciest</div>';
     } else if (maxFull != null && winnerKey) {
@@ -560,7 +941,9 @@ function renderTable(a) {
       if (p == null) {
         td.className = 'price na';
         td.textContent = '—';
-        td.title = 'Not typically carried';
+        td.title = 'No price yet — tap to add one for this store';
+        td.style.cursor = 'pointer';
+        td.addEventListener('click', () => beginEdit(td, row, s));
         return;
       }
       td.className = 'price' + (p === min ? ' best' : '');
@@ -672,6 +1055,28 @@ document.getElementById('clearBtn').addEventListener('click', () => {
 });
 document.getElementById('listInput').addEventListener('keydown', e => {
   if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) document.getElementById('compareBtn').click();
+});
+
+// Import controls
+const importStoreSel = document.getElementById('importStore');
+for (const s of STORES) {
+  const opt = document.createElement('option');
+  opt.value = s.key;
+  opt.textContent = s.name;
+  importStoreSel.appendChild(opt);
+}
+importStoreSel.value = 'wholefoods';
+document.getElementById('importToggleBtn').addEventListener('click', () => {
+  const box = document.getElementById('importBox');
+  box.hidden = !box.hidden;
+  if (!box.hidden) document.getElementById('importText').focus();
+});
+document.getElementById('previewImportBtn').addEventListener('click', previewImport);
+
+// Nearby stores controls
+document.getElementById('zipBtn').addEventListener('click', findNearbyStores);
+document.getElementById('zipInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') findNearbyStores();
 });
 
 loadSaved();
