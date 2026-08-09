@@ -26,6 +26,13 @@ jobs:
         with:
           node-version: 22
 
+      - name: Select newest Xcode (Apple requires the iOS 26 SDK or later)
+        run: |
+          latest="$(ls -d /Applications/Xcode*.app | sort -V | tail -1)"
+          echo "Selecting $latest"
+          sudo xcode-select -s "$latest"
+          xcodebuild -version
+
       - name: Install web dependencies and sync iOS project
         run: |
           npm ci
