@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Simmer Cart Compare — Grocery Price Comparison by Store</title>
   <meta name="description" content="Paste your grocery list and see which store is cheaper — line by line and for the whole cart — across Target, Whole Foods, Kroger, Sprouts, Gelson's, and Trader Joe's.">
+  <meta name="theme-color" content="#e0573a">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -130,6 +131,12 @@
     td.price.na { color: #ccc; cursor: default; }
     td.price .edited-dot { color: #c8860a; font-size: 10px; vertical-align: super; }
     td.price input { width: 64px; font: inherit; font-size: 13px; text-align: right; padding: 2px 4px; border: 1px solid #e0573a; border-radius: 6px; }
+    .check-link {
+      display: inline-block; margin-left: 6px; font-size: 11px; font-weight: 600;
+      color: #e0573a; text-decoration: none; background: #fff5ee;
+      border: 1px solid #f0d9cd; border-radius: 10px; padding: 2px 8px; white-space: nowrap;
+    }
+    .check-link:hover { background: #fdeadd; }
     td.savings-cell { font-size: 12px; color: #2e8b57; }
     tfoot td { font-weight: 700; border-top: 2px solid #e5d9cd; }
     tfoot td.best-total { color: #2e8b57; }
@@ -143,6 +150,10 @@
     @media (max-width: 480px) {
       .hero h1 { font-size: 24px; }
       .panel { padding: 16px; }
+      /* 16px inputs stop iOS Safari from auto-zooming on focus */
+      textarea, .nearby input, .import-box select, td.price input { font-size: 16px; }
+      td.price input { width: 74px; }
+      .check-link { padding: 4px 10px; font-size: 12px; }
     }
   </style>
 </head>
@@ -167,7 +178,9 @@
 
       <div class="import-box" id="importBox" hidden>
         <h2 style="font-size:16px">Import a live cart</h2>
-        <p class="hint">Already have a cart going at Whole Foods, Target, or Instacart? Open the cart page in your browser, select the whole page (Ctrl/Cmd&#8209;A), copy it, and paste it below. We'll pull out the items, quantities, and the <strong>exact prices you're being charged</strong> — so that store's column shows your real prices, not estimates.</p>
+        <p class="hint">Already have a cart going at Whole Foods, Target, or Instacart? Copy your cart and paste it below — we'll pull out the items, quantities, and the <strong>exact prices you're being charged</strong>, so that store's column shows your real prices, not estimates.</p>
+        <p class="hint"><strong>On your phone:</strong> open the cart in your browser (not the store's app), press and hold to start selecting, drag the handles across your items, copy, and paste here. It doesn't need to be tidy — a rough selection with extra page junk is fine, we filter it out.<br>
+        <strong>On a computer:</strong> open the cart page, select everything (Ctrl/Cmd&#8209;A), copy, and paste here.</p>
         <label style="font-size:14px;font-weight:600;color:#555">This cart is from:
           <select id="importStore"></select>
         </label>
@@ -199,7 +212,7 @@
 
     <div class="panel" id="tablePanel" style="display:none">
       <h2>Line-by-line comparison</h2>
-      <p class="hint">The cheapest store for each item is highlighted. Tap any price to adjust it to your local store — totals update instantly. Prices marked <span style="color:#c8860a">●</span> are yours (edited by hand or imported from a live cart).</p>
+      <p class="hint">The cheapest store for each item is highlighted. Tap any price to adjust it — you'll also get a <strong>“check&nbsp;↗”</strong> button that opens that store's own search for the item (on your phone it opens their app or site, showing your local store's real price). Type in what you see and totals update instantly. Prices marked <span style="color:#c8860a">●</span> are yours.</p>
       <div class="table-scroll"><table id="compareTable"></table></div>
       <div class="unmatched" id="unmatchedBox" style="display:none"></div>
       <p class="disclaimer">Prices are representative estimates for a typical U.S. metro area (updated August 2026), not live store data. Actual prices vary by location, brand, and sales — tap any price to correct it for your area.</p>
@@ -788,6 +801,24 @@ async function findNearbyStores() {
 }
 
 // ---------------------------------------------------------------------------
+// Store search links — open the store's own site/app search for an item, so
+// users see their real local price and can tap it into the app. On phones
+// these typically open the retailer's app if installed.
+// ---------------------------------------------------------------------------
+const SEARCH_URLS = {
+  kroger:     q => 'https://www.kroger.com/search?query=' + q,
+  target:     q => 'https://www.target.com/s?searchTerm=' + q,
+  traderjoes: q => 'https://www.traderjoes.com/home/search?q=' + q + '&section=products',
+  sprouts:    q => 'https://shop.sprouts.com/search?search_term=' + q,
+  wholefoods: q => 'https://www.amazon.com/s?k=' + q + '&i=wholefoods',
+  gelsons:    q => 'https://www.instacart.com/store/gelsons/s?k=' + q,
+};
+function searchUrl(item, storeKey) {
+  const q = encodeURIComponent(item.name.replace(/[()]/g, ' ').replace(/\s+/g, ' ').trim());
+  return SEARCH_URLS[storeKey](q);
+}
+
+// ---------------------------------------------------------------------------
 // Pricing & analysis
 // ---------------------------------------------------------------------------
 function priceFor(item, storeKey) {
@@ -983,8 +1014,24 @@ function beginEdit(td, row, store) {
   input.type = 'number';
   input.step = '0.01';
   input.min = '0';
+  input.inputMode = 'decimal';
   input.value = current != null ? current.toFixed(2) : '';
   td.appendChild(input);
+
+  const link = document.createElement('a');
+  link.className = 'check-link';
+  link.href = searchUrl(row.item, store.key);
+  link.target = '_blank';
+  link.rel = 'noopener';
+  link.textContent = 'check ' + store.name + ' ↗';
+  link.title = 'Opens ' + store.name + '\'s own search for this item — their site/app shows your local price';
+  // Open on mousedown/touchstart (before blur re-renders the row) and keep
+  // the input focused so the user can type the price when they come back.
+  const openStore = e => { e.preventDefault(); window.open(link.href, '_blank', 'noopener'); };
+  link.addEventListener('mousedown', openStore);
+  link.addEventListener('touchstart', openStore, { passive: false });
+  link.addEventListener('click', e => e.preventDefault());
+  td.appendChild(link);
   input.focus();
   input.select();
   const commit = () => {
