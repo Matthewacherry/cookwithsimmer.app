@@ -37,6 +37,18 @@ jobs:
         run: |
           npm ci
           npx cap sync ios
+          # cap sync only scans npm packages for native plugin classes; add our
+          # in-app OCR plugin to the auto-registration list it generates.
+          python3 - <<'PYEOF'
+          import json
+          p = 'ios/App/App/capacitor.config.json'
+          cfg = json.load(open(p))
+          cls = cfg.setdefault('packageClassList', [])
+          if 'TextRecognizerPlugin' not in cls:
+              cls.append('TextRecognizerPlugin')
+          json.dump(cfg, open(p, 'w'), indent='\t')
+          print('packageClassList:', cls)
+          PYEOF
 
       - name: Prepare signing credentials
         env:

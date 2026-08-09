@@ -1180,11 +1180,20 @@ document.getElementById('previewImportBtn').addEventListener('click', previewImp
   let recognizer = null;
   const getRecognizer = () => {
     if (recognizer) return recognizer;
+    const cap = window.Capacitor;
     try {
-      if (window.Capacitor.registerPlugin) recognizer = window.Capacitor.registerPlugin('TextRecognizer');
-      else if (window.Capacitor.Plugins) recognizer = window.Capacitor.Plugins.TextRecognizer;
-    } catch (e) { /* plugin unavailable */ }
+      if (cap.Plugins && cap.Plugins.TextRecognizer) recognizer = cap.Plugins.TextRecognizer;
+      else if (typeof cap.nativePromise === 'function') {
+        recognizer = { recognize: opts => cap.nativePromise('TextRecognizer', 'recognize', opts) };
+      } else if (typeof cap.registerPlugin === 'function') {
+        recognizer = cap.registerPlugin('TextRecognizer');
+      }
+    } catch (e) { /* fall through to diagnostic */ }
     return recognizer;
+  };
+  const pluginDiagnostic = () => {
+    const names = Object.keys((window.Capacitor && window.Capacitor.Plugins) || {});
+    return names.length ? 'Native modules present: ' + names.join(', ') : 'No native modules loaded.';
   };
   const fileToBase64 = file => new Promise((resolve, reject) => {
     const r = new FileReader();
@@ -1198,7 +1207,7 @@ document.getElementById('previewImportBtn').addEventListener('click', previewImp
     shotInput.value = '';
     if (!files.length) return;
     const rec = getRecognizer();
-    if (!rec) { alert('Screenshot reading needs the latest version of the app.'); return; }
+    if (!rec) { alert('Screenshot reader is not available in this build. ' + pluginDiagnostic()); return; }
     shotBtn.disabled = true;
     const texts = [];
     try {
