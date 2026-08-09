@@ -1,0 +1,9 @@
+{
+  "appId": "app.cookwithsimmer.cartcompare",
+  "appName": "CartCompare",
+  "webDir": "www",
+  "ios": {
+    "contentInset": "always",
+    "backgroundColor": "#e0573a"
+  }
+}
