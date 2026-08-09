@@ -1,0 +1,14 @@
+{
+  "name": "CartCompare — Grocery Price Comparison",
+  "short_name": "CartCompare",
+  "description": "Compare your grocery list or live cart across Target, Whole Foods, Kroger, Sprouts, Gelson's, and Trader Joe's — line by line, and for the whole cart.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#fffaf5",
+  "theme_color": "#e0573a",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

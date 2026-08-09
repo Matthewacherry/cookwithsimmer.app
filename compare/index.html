@@ -1,0 +1,1173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CartCompare — Which Grocery Store Is Cheaper for Your List?</title>
+  <meta name="description" content="Paste your grocery list or import a live cart and see which store is cheaper — line by line and for the whole cart — across Target, Whole Foods, Kroger, Sprouts, Gelson's, and Trader Joe's.">
+  <meta name="theme-color" content="#e0573a">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="CartCompare">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #fffaf5;
+      color: #2d2d2d;
+      line-height: 1.6;
+    }
+    a { color: #e0573a; }
+    .hero {
+      background: linear-gradient(135deg, #e0573a 0%, #c8860a 100%);
+      color: white;
+      padding: 40px 20px 34px;
+      text-align: center;
+    }
+    .hero h1 { font-size: 30px; font-weight: 700; letter-spacing: -0.5px; }
+    .hero .tagline { font-size: 16px; opacity: 0.93; max-width: 560px; margin: 8px auto 0; }
+    .hero .home-link { display: inline-block; margin-top: 14px; color: white; font-size: 13px; opacity: 0.85; }
+    .install-tip {
+      background: #fff5ee; border-bottom: 1px solid #f0d9cd; color: #8a5a3a;
+      font-size: 13px; text-align: center; padding: 9px 40px 9px 16px; position: relative;
+    }
+    .install-tip[hidden] { display: none; }
+    .install-tip button {
+      position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+      background: none; border: none; color: #c8946a; font-size: 14px; cursor: pointer; padding: 4px 8px;
+    }
+    .wrap { max-width: 980px; margin: 0 auto; padding: 28px 16px 60px; }
+
+    .panel { background: white; border: 1px solid #f0e8e0; border-radius: 14px; padding: 22px; margin-bottom: 22px; }
+    .panel h2 { font-size: 18px; margin-bottom: 4px; }
+    .panel .hint { font-size: 13px; color: #888; margin-bottom: 12px; }
+    textarea {
+      width: 100%; min-height: 150px; resize: vertical;
+      font: inherit; font-size: 15px; padding: 12px 14px;
+      border: 1px solid #e5d9cd; border-radius: 10px; background: #fffdfb;
+    }
+    textarea:focus { outline: 2px solid #e0573a55; border-color: #e0573a; }
+    .controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 12px; }
+    .btn {
+      background: #e0573a; color: white; border: none; cursor: pointer;
+      font-size: 15px; font-weight: 600; padding: 11px 26px; border-radius: 24px;
+      transition: background 0.15s;
+    }
+    .btn:hover { background: #c94d32; }
+    .btn.secondary { background: #fff5ee; color: #e0573a; border: 1px solid #f0d9cd; }
+    .btn.secondary:hover { background: #fdeadd; }
+    .store-toggles { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+    .store-toggles label {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 13px; font-weight: 600; color: #555;
+      background: #faf4ee; border: 1px solid #eee0d4; border-radius: 16px;
+      padding: 5px 12px; cursor: pointer; user-select: none;
+    }
+    .store-toggles input { accent-color: #e0573a; }
+
+    /* Nearby stores */
+    .nearby { margin-top: 16px; border-top: 1px solid #f4ece4; padding-top: 14px; }
+    .nearby .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .nearby label { font-size: 14px; font-weight: 600; color: #555; }
+    .nearby input {
+      width: 110px; font: inherit; font-size: 15px; padding: 8px 12px;
+      border: 1px solid #e5d9cd; border-radius: 20px; background: #fffdfb;
+    }
+    .nearby input:focus { outline: 2px solid #e0573a55; border-color: #e0573a; }
+    .nearby .status { font-size: 13px; color: #888; margin-top: 8px; }
+    .nearby .status.error { color: #c0392b; }
+    .nearby .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .nearby .chip { background: #f4fbf7; border: 1px solid #cde7d8; border-radius: 12px; font-size: 12px; padding: 3px 10px; color: #2e6b4f; }
+    .nearby .chip.absent { background: #faf4ee; border-color: #eee0d4; color: #999; text-decoration: line-through; }
+
+    /* Cart import */
+    .import-box { margin-top: 14px; border-top: 1px solid #f4ece4; padding-top: 14px; }
+    .import-box[hidden] { display: none; }
+    .import-box select {
+      font: inherit; font-size: 14px; padding: 7px 10px;
+      border: 1px solid #e5d9cd; border-radius: 10px; background: #fffdfb;
+    }
+    .import-box textarea { min-height: 110px; margin-top: 10px; }
+    .import-preview { margin-top: 12px; }
+    .import-preview table { min-width: 0; width: 100%; font-size: 13px; }
+    .import-preview th, .import-preview td { white-space: normal; }
+    .import-preview td.p-name { text-align: left; max-width: 300px; }
+    .import-preview td.p-name .raw { display: block; font-size: 11px; color: #aaa; }
+    .import-preview .match-tag { font-size: 11px; color: #2e8b57; font-weight: 600; }
+    .import-preview .match-tag.new { color: #c8860a; }
+    .import-preview .swap-link { font-size: 11px; color: #e0573a; cursor: pointer; text-decoration: underline; margin-left: 6px; }
+    .import-preview input[type=checkbox] { accent-color: #e0573a; }
+
+    /* Totals cards */
+    .totals-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+    .total-card { border: 1px solid #f0e8e0; border-radius: 12px; padding: 14px 12px; text-align: center; background: #fffdfb; position: relative; }
+    .total-card.winner { border-color: #2e8b57; box-shadow: 0 0 0 2px #2e8b5722; background: #f4fbf7; }
+    .total-card .badge {
+      position: absolute; top: -10px; left: 50%; transform: translateX(-50%);
+      background: #2e8b57; color: white; font-size: 10px; font-weight: 700;
+      padding: 2px 10px; border-radius: 10px; white-space: nowrap;
+    }
+    .total-card h3 { font-size: 13px; color: #555; margin-bottom: 2px; }
+    .total-card .amount { font-size: 22px; font-weight: 700; color: #2d2d2d; }
+    .total-card.winner .amount { color: #2e8b57; }
+    .total-card .meta { font-size: 11px; color: #999; margin-top: 2px; }
+    .total-card .meta.warn { color: #c8860a; font-weight: 600; }
+
+    .split-card {
+      margin-top: 14px; border: 1px dashed #c8860a88; background: #fffaf0;
+      border-radius: 12px; padding: 14px 16px;
+    }
+    .split-card h3 { font-size: 14px; color: #c8860a; }
+    .split-card .amount { font-weight: 700; }
+    .split-card .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .split-card .chip { background: white; border: 1px solid #eee0d4; border-radius: 12px; font-size: 12px; padding: 3px 10px; color: #555; }
+
+    /* Comparison table */
+    .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    table { border-collapse: collapse; width: 100%; font-size: 14px; min-width: 640px; }
+    th, td { padding: 8px 10px; text-align: right; border-bottom: 1px solid #f4ece4; white-space: nowrap; }
+    th { font-size: 12px; text-transform: uppercase; letter-spacing: 0.4px; color: #888; }
+    th:first-child, td:first-child { text-align: left; }
+    td.item-cell { max-width: 220px; white-space: normal; }
+    td.item-cell .unit { display: block; font-size: 11px; color: #999; }
+    td.qty-cell { text-align: center; }
+    .qty-btn {
+      border: 1px solid #e5d9cd; background: white; color: #e0573a;
+      width: 22px; height: 22px; border-radius: 50%; cursor: pointer;
+      font-size: 13px; line-height: 1; font-weight: 700;
+    }
+    .qty-num { display: inline-block; min-width: 20px; text-align: center; font-weight: 600; }
+    td.price { cursor: pointer; }
+    td.price:hover { background: #fff5ee; }
+    td.price.best { background: #eaf7f0; color: #2e8b57; font-weight: 700; }
+    td.price.na { color: #ccc; cursor: default; }
+    td.price .edited-dot { color: #c8860a; font-size: 10px; vertical-align: super; }
+    td.price input { width: 64px; font: inherit; font-size: 13px; text-align: right; padding: 2px 4px; border: 1px solid #e0573a; border-radius: 6px; }
+    .check-link {
+      display: inline-block; margin-left: 6px; font-size: 11px; font-weight: 600;
+      color: #e0573a; text-decoration: none; background: #fff5ee;
+      border: 1px solid #f0d9cd; border-radius: 10px; padding: 2px 8px; white-space: nowrap;
+    }
+    .check-link:hover { background: #fdeadd; }
+    td.savings-cell { font-size: 12px; color: #2e8b57; }
+    tfoot td { font-weight: 700; border-top: 2px solid #e5d9cd; }
+    tfoot td.best-total { color: #2e8b57; }
+
+    .unmatched { margin-top: 14px; background: #fff8f0; border: 1px solid #f0e0c8; border-radius: 10px; padding: 12px 14px; font-size: 13px; color: #8a6a2f; }
+    .unmatched strong { display: block; margin-bottom: 4px; }
+    .disclaimer { font-size: 12px; color: #aaa; margin-top: 18px; text-align: center; }
+    .empty-note { color: #999; font-size: 14px; text-align: center; padding: 20px 0; }
+    .footer { text-align: center; padding: 26px 20px; font-size: 13px; color: #999; border-top: 1px solid #eee; }
+    .footer a { text-decoration: none; margin: 0 8px; }
+    @media (max-width: 480px) {
+      .hero h1 { font-size: 24px; }
+      .panel { padding: 16px; }
+      /* 16px inputs stop iOS Safari from auto-zooming on focus */
+      textarea, .nearby input, .import-box select, td.price input { font-size: 16px; }
+      td.price input { width: 74px; }
+      .check-link { padding: 4px 10px; font-size: 12px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="hero">
+    <h1>🛒 CartCompare</h1>
+    <p class="tagline">Paste your grocery list and see which store wins — item by item, and for the whole cart.</p>
+    <a class="home-link" href="https://cookwithsimmer.app">by the makers of Simmer ↗</a>
+  </div>
+  <div class="install-tip" id="installTip" hidden>
+    📲 Use CartCompare like an app: open your browser's share menu and tap <strong>Add&nbsp;to&nbsp;Home&nbsp;Screen</strong>.
+    <button id="installTipClose" aria-label="Dismiss">✕</button>
+  </div>
+
+  <div class="wrap">
+    <div class="panel">
+      <h2>Your grocery list</h2>
+      <p class="hint">One item per line. Quantities work too — try “2x chicken breast”, “bananas x3”, or “2 milk”.</p>
+      <textarea id="listInput" placeholder="milk&#10;eggs&#10;2x chicken breast&#10;bananas x3&#10;sourdough bread&#10;olive oil"></textarea>
+      <div class="controls">
+        <button class="btn" id="compareBtn">Compare prices</button>
+        <button class="btn secondary" id="sampleBtn">Try a sample list</button>
+        <button class="btn secondary" id="importToggleBtn">📋 Import a cart…</button>
+        <button class="btn secondary" id="clearBtn">Clear</button>
+      </div>
+
+      <div class="import-box" id="importBox" hidden>
+        <h2 style="font-size:16px">Import a live cart</h2>
+        <p class="hint">Already have a cart going at Whole Foods, Target, or Instacart? Copy your cart and paste it below — we'll pull out the items, quantities, and the <strong>exact prices you're being charged</strong>, so that store's column shows your real prices, not estimates.</p>
+        <p class="hint"><strong>On your phone:</strong> open the cart in your browser (not the store's app), press and hold to start selecting, drag the handles across your items, copy, and paste here. It doesn't need to be tidy — a rough selection with extra page junk is fine, we filter it out.<br>
+        <strong>On a computer:</strong> open the cart page, select everything (Ctrl/Cmd&#8209;A), copy, and paste here.</p>
+        <label style="font-size:14px;font-weight:600;color:#555">This cart is from:
+          <select id="importStore"></select>
+        </label>
+        <textarea id="importText" placeholder="Paste your copied cart page here…"></textarea>
+        <div class="controls">
+          <button class="btn" id="previewImportBtn">Preview import</button>
+        </div>
+        <div class="import-preview" id="importPreview"></div>
+      </div>
+
+      <div class="nearby">
+        <div class="row">
+          <label for="zipInput">Only compare stores near you:</label>
+          <input id="zipInput" placeholder="ZIP code" inputmode="numeric" maxlength="5" autocomplete="postal-code">
+          <button class="btn secondary" id="zipBtn">Find my stores</button>
+        </div>
+        <div class="status" id="zipStatus"></div>
+        <div class="chips" id="zipResults"></div>
+      </div>
+      <div class="store-toggles" id="storeToggles"></div>
+    </div>
+
+    <div class="panel" id="resultsPanel" style="display:none">
+      <h2>Cart totals by store</h2>
+      <p class="hint">Ranked cheapest first. A store must carry every matched item to win “Cheapest full cart”.</p>
+      <div class="totals-grid" id="totalsGrid"></div>
+      <div class="split-card" id="splitCard"></div>
+    </div>
+
+    <div class="panel" id="tablePanel" style="display:none">
+      <h2>Line-by-line comparison</h2>
+      <p class="hint">The cheapest store for each item is highlighted. Tap any price to adjust it — you'll also get a <strong>“check&nbsp;↗”</strong> button that opens that store's own search for the item (on your phone it opens their app or site, showing your local store's real price). Type in what you see and totals update instantly. Prices marked <span style="color:#c8860a">●</span> are yours.</p>
+      <div class="table-scroll"><table id="compareTable"></table></div>
+      <div class="unmatched" id="unmatchedBox" style="display:none"></div>
+      <p class="disclaimer">Prices are representative estimates for a typical U.S. metro area (updated August 2026), not live store data. Actual prices vary by location, brand, and sales — tap any price to correct it for your area.</p>
+      <p class="disclaimer">🔒 <strong>Your list never leaves your phone.</strong> Everything — your list, cart imports, and edited prices — is stored only on your device. The one exception: your ZIP code is sent to OpenStreetMap (a non-profit map service) when you tap “Find my stores.”</p>
+    </div>
+  </div>
+
+  <div class="footer">
+    <p>CartCompare is a free tool from <a href="https://cookwithsimmer.app">Simmer</a> · <a href="https://cookwithsimmer.app/privacy">Privacy Policy</a> · <a href="https://cookwithsimmer.app/terms">Terms of Service</a></p>
+    <p>&copy; 2026 Matthew A. Cherry Entertainment, LLC. All rights reserved.</p>
+  </div>
+
+<script>
+'use strict';
+
+// ---------------------------------------------------------------------------
+// Stores
+// ---------------------------------------------------------------------------
+const STORES = [
+  { key: 'kroger',     name: 'Kroger' },
+  { key: 'target',     name: 'Target' },
+  { key: 'traderjoes', name: "Trader Joe's" },
+  { key: 'sprouts',    name: 'Sprouts' },
+  { key: 'wholefoods', name: 'Whole Foods' },
+  { key: 'gelsons',    name: "Gelson's" },
+];
+
+// ---------------------------------------------------------------------------
+// Price dataset — representative U.S. metro estimates, per common unit.
+// Order of prices: [kroger, target, traderjoes, sprouts, wholefoods, gelsons]
+// null = store typically doesn't carry a comparable item.
+// ---------------------------------------------------------------------------
+function I(name, unit, prices, aliases) {
+  const [kroger, target, traderjoes, sprouts, wholefoods, gelsons] = prices;
+  return { name, unit, aliases: aliases || [], prices: { kroger, target, traderjoes, sprouts, wholefoods, gelsons } };
+}
+const ITEMS = [
+  // Produce
+  I('Bananas', 'per lb', [0.59, 0.55, 0.23, 0.69, 0.69, 0.99], ['banana']),
+  I('Apples (Fuji)', 'per lb', [1.49, 1.59, 1.79, 1.79, 2.49, 2.99], ['apple', 'apples', 'fuji apples']),
+  I('Avocados', 'each', [1.25, 1.19, 1.29, 1.00, 1.69, 2.49], ['avocado', 'hass avocado']),
+  I('Strawberries', '1 lb', [3.49, 3.29, 3.99, 3.99, 4.99, 5.99], ['strawberry']),
+  I('Blueberries', '6 oz', [2.99, 2.89, 3.49, 3.49, 3.99, 4.99], ['blueberry']),
+  I('Grapes (red seedless)', 'per lb', [2.49, 2.29, 2.99, 2.99, 3.49, 3.99], ['grapes', 'red grapes', 'green grapes']),
+  I('Lemons', 'each', [0.69, 0.59, 0.50, 0.75, 0.89, 1.29], ['lemon']),
+  I('Limes', 'each', [0.50, 0.45, 0.39, 0.59, 0.69, 0.99], ['lime']),
+  I('Oranges (navel)', 'per lb', [1.29, 1.39, 1.49, 1.49, 1.99, 2.49], ['orange', 'oranges', 'navel oranges']),
+  I('Tomatoes (roma)', 'per lb', [1.49, 1.59, 1.99, 1.79, 2.49, 2.99], ['tomato', 'tomatoes', 'roma tomatoes']),
+  I('Cherry tomatoes', '1 pint', [2.99, 2.79, 2.99, 3.49, 3.99, 4.99], ['grape tomatoes']),
+  I('Onions (yellow)', 'per lb', [0.99, 1.09, 0.89, 1.29, 1.49, 1.99], ['onion', 'onions', 'yellow onion']),
+  I('Red onion', 'per lb', [1.29, 1.39, 1.19, 1.49, 1.79, 2.29], ['red onions']),
+  I('Garlic', 'per head', [0.69, 0.79, 0.79, 0.89, 0.99, 1.49], ['garlic head']),
+  I('Russet potatoes', '5 lb bag', [3.99, 4.29, 3.99, 4.99, 5.99, 6.99], ['potatoes', 'potato', 'russets']),
+  I('Sweet potatoes', 'per lb', [1.29, 1.39, 1.49, 1.49, 1.99, 2.49], ['sweet potato', 'yams']),
+  I('Carrots', '1 lb bag', [1.19, 1.29, 1.29, 1.49, 1.69, 1.99], ['carrot', 'baby carrots']),
+  I('Celery', 'per bunch', [1.99, 2.19, 2.29, 2.49, 2.99, 3.49], []),
+  I('Broccoli', 'per lb', [1.99, 2.19, 2.49, 2.49, 2.99, 3.49], ['broccoli crowns']),
+  I('Cauliflower', 'per head', [2.99, 3.19, 3.49, 3.49, 3.99, 4.99], []),
+  I('Spinach (baby)', '5 oz', [2.49, 2.29, 1.99, 2.99, 2.99, 3.99], ['spinach', 'baby spinach']),
+  I('Spring mix', '5 oz', [2.99, 2.79, 2.49, 3.29, 3.49, 4.49], ['salad mix', 'mixed greens', 'lettuce']),
+  I('Kale', 'per bunch', [1.99, 2.29, 2.29, 2.49, 2.79, 3.49], []),
+  I('Bell peppers', 'each', [1.29, 1.19, 0.99, 1.49, 1.99, 2.49], ['bell pepper', 'red bell pepper', 'peppers']),
+  I('Cucumbers', 'each', [0.89, 0.99, 0.99, 1.19, 1.49, 1.99], ['cucumber', 'english cucumber']),
+  I('Zucchini', 'per lb', [1.49, 1.59, 1.79, 1.79, 2.29, 2.99], ['zucchinis']),
+  I('Mushrooms (cremini)', '8 oz', [2.29, 2.19, 1.99, 2.79, 2.99, 3.99], ['mushrooms', 'mushroom', 'baby bella']),
+  I('Cilantro', 'per bunch', [0.89, 0.99, 0.99, 1.19, 1.49, 1.99], []),
+  I('Ginger', 'per lb', [2.99, 3.29, 3.49, 3.49, 3.99, 4.99], ['fresh ginger', 'ginger root']),
+
+  // Dairy & eggs
+  I('Milk (whole)', '1 gallon', [3.29, 3.19, 3.99, 4.49, 4.79, 5.49], ['milk', '2% milk', 'whole milk', 'gallon of milk']),
+  I('Oat milk', '64 oz', [4.29, 3.99, 3.49, 4.49, 4.49, 5.49], ['oatmilk', 'oatly']),
+  I('Almond milk', '64 oz', [3.49, 3.29, 2.99, 3.99, 3.99, 4.99], []),
+  I('Eggs (large)', 'dozen', [3.49, 3.29, 3.99, 4.49, 4.99, 5.99], ['eggs', 'egg', 'dozen eggs', 'large eggs']),
+  I('Butter (salted)', '1 lb', [4.49, 4.29, 3.99, 5.49, 5.99, 6.99], ['butter', 'unsalted butter']),
+  I('Cheddar cheese', '8 oz block', [3.29, 2.99, 3.49, 3.99, 4.49, 5.49], ['cheddar', 'cheese', 'sharp cheddar']),
+  I('Mozzarella (shredded)', '8 oz', [2.99, 2.79, 3.29, 3.49, 3.99, 4.99], ['mozzarella', 'shredded cheese']),
+  I('Parmesan (wedge)', '8 oz', [5.99, 5.79, 4.99, 6.99, 7.99, 8.99], ['parmesan', 'parmigiano']),
+  I('Cream cheese', '8 oz', [2.49, 2.29, 1.99, 2.99, 3.49, 3.99], []),
+  I('Greek yogurt (plain)', '32 oz', [4.99, 4.79, 4.49, 5.49, 5.99, 6.99], ['greek yogurt', 'yogurt']),
+  I('Sour cream', '16 oz', [2.29, 2.19, 1.99, 2.79, 2.99, 3.79], []),
+  I('Heavy cream', '16 oz', [3.99, 3.79, 3.49, 4.49, 4.99, 5.99], ['heavy whipping cream', 'whipping cream']),
+
+  // Meat & seafood
+  I('Chicken breast (boneless)', 'per lb', [3.99, 4.29, 5.49, 5.99, 6.99, 8.99], ['chicken breast', 'chicken breasts', 'chicken']),
+  I('Chicken thighs (boneless)', 'per lb', [3.49, 3.79, 4.49, 4.99, 5.99, 7.49], ['chicken thighs', 'chicken thigh']),
+  I('Whole chicken', 'per lb', [1.79, 1.89, 2.49, 2.99, 3.49, 3.99], ['roasting chicken', 'whole fryer']),
+  I('Ground beef (85/15)', 'per lb', [5.49, 5.29, 5.99, 6.99, 7.49, 9.99], ['ground beef', 'hamburger meat', 'beef']),
+  I('Ground turkey', 'per lb', [4.49, 4.29, 4.99, 5.49, 5.99, 7.49], []),
+  I('Ribeye steak', 'per lb', [12.99, 13.49, 13.99, 15.99, 17.99, 21.99], ['ribeye', 'steak']),
+  I('Pork chops', 'per lb', [3.99, 4.19, 4.99, 5.49, 6.49, 7.99], ['pork chop', 'pork']),
+  I('Bacon', '12 oz', [5.49, 5.29, 4.99, 6.49, 7.49, 8.49], []),
+  I('Salmon fillet (Atlantic)', 'per lb', [9.99, 10.49, 11.99, 11.99, 13.99, 16.99], ['salmon', 'salmon filet']),
+  I('Shrimp (raw, 31-40)', 'per lb', [7.99, 7.49, 8.99, 9.99, 11.99, 13.99], ['shrimp']),
+  I('Deli turkey (sliced)', 'per lb', [8.99, 8.49, 7.99, 9.99, 11.99, 12.99], ['deli turkey', 'turkey', 'sliced turkey', 'lunch meat']),
+
+  // Bakery & grains
+  I('Sourdough bread', 'per loaf', [3.99, 3.79, 3.49, 4.49, 4.99, 5.99], ['sourdough', 'bread']),
+  I('Whole wheat bread', 'per loaf', [2.99, 2.79, 2.49, 3.49, 3.99, 4.79], ['wheat bread', 'sandwich bread']),
+  I('Bagels', '6 pack', [3.49, 3.29, 2.99, 3.99, 4.49, 5.49], ['bagel']),
+  I('Flour tortillas', '10 count', [2.99, 2.79, 2.49, 3.29, 3.99, 4.49], ['tortillas', 'tortilla', 'corn tortillas']),
+  I('White rice (long grain)', '2 lb', [2.79, 2.59, 2.99, 3.29, 3.99, 4.49], ['rice', 'jasmine rice', 'white rice']),
+  I('Brown rice', '2 lb', [2.99, 2.79, 3.29, 3.49, 4.29, 4.99], []),
+  I('Quinoa', '1 lb', [4.49, 4.29, 3.99, 4.99, 5.49, 6.49], []),
+  I('Pasta (spaghetti)', '1 lb', [1.49, 1.29, 0.99, 1.99, 2.29, 2.99], ['pasta', 'spaghetti', 'penne', 'noodles']),
+  I('Rolled oats', '42 oz', [4.29, 3.99, 3.79, 4.99, 5.49, 6.49], ['oats', 'oatmeal']),
+
+  // Pantry
+  I('Olive oil (extra virgin)', '750 ml', [8.99, 8.49, 7.99, 9.99, 10.99, 13.99], ['olive oil', 'evoo']),
+  I('Vegetable oil', '48 oz', [4.29, 3.99, null, 4.99, 5.49, 5.99], ['canola oil', 'cooking oil']),
+  I('Pasta sauce (marinara)', '24 oz', [2.49, 2.29, 1.99, 2.99, 3.49, 4.49], ['marinara', 'tomato sauce', 'pasta sauce']),
+  I('Canned tomatoes (diced)', '14.5 oz', [1.29, 1.19, 0.99, 1.49, 1.79, 2.29], ['canned tomatoes', 'diced tomatoes', 'crushed tomatoes']),
+  I('Black beans (canned)', '15 oz', [0.99, 0.89, 0.99, 1.29, 1.49, 1.99], ['black beans', 'beans', 'canned beans']),
+  I('Chickpeas (canned)', '15 oz', [0.99, 0.89, 0.99, 1.29, 1.49, 1.99], ['garbanzo beans', 'chickpea']),
+  I('Chicken broth', '32 oz', [1.99, 1.79, 1.99, 2.49, 2.79, 3.49], ['chicken stock', 'broth', 'vegetable broth']),
+  I('Peanut butter', '16 oz', [2.79, 2.49, 2.29, 3.29, 3.99, 4.49], []),
+  I('Strawberry jam', '18 oz', [3.29, 2.99, 2.69, 3.79, 4.29, 4.99], ['jam', 'jelly', 'preserves']),
+  I('Honey', '12 oz', [4.49, 4.29, 3.99, 4.99, 5.99, 6.99], []),
+  I('Maple syrup (pure)', '12 oz', [7.99, 7.49, 6.99, 8.49, 8.99, 10.99], ['maple syrup', 'syrup']),
+  I('Ketchup', '20 oz', [2.79, 2.49, 2.29, 3.29, 3.49, 3.99], []),
+  I('Mayonnaise', '30 oz', [4.49, 4.29, 3.99, 4.99, 5.49, 5.99], ['mayo']),
+  I('Soy sauce', '10 oz', [2.49, 2.29, 1.99, 2.99, 3.29, 3.99], []),
+  I('Salsa', '16 oz', [2.99, 2.79, 2.49, 3.49, 3.99, 4.99], []),
+  I('All-purpose flour', '5 lb', [2.99, 2.79, 3.49, 3.99, 4.49, 4.99], ['flour']),
+  I('Granulated sugar', '4 lb', [3.29, 2.99, 3.49, 3.99, 4.49, 4.99], ['sugar', 'white sugar']),
+  I('Kosher salt', '3 lb box', [2.99, 2.79, 2.49, 3.29, 3.99, 4.49], ['salt', 'sea salt']),
+  I('Black pepper (ground)', '3 oz', [3.49, 3.29, 2.99, 3.99, 4.49, 4.99], ['pepper', 'peppercorns']),
+  I('Coffee (ground)', '12 oz', [7.99, 7.49, 5.99, 8.99, 9.99, 11.99], ['coffee', 'coffee beans']),
+  I('Black tea', '20 bags', [3.29, 2.99, 2.49, 3.79, 4.29, 4.99], ['tea', 'green tea']),
+  I('Tortilla chips', '13 oz', [3.29, 2.99, 2.49, 3.79, 3.99, 4.99], ['chips']),
+  I('Salted almonds', '16 oz', [7.99, 7.49, 6.99, 8.49, 9.99, 10.99], ['almonds', 'nuts']),
+  I('Granola bars', '6 pack', [3.49, 3.29, 2.99, 3.99, 4.49, 4.99], ['granola bar', 'protein bars']),
+  I('Dark chocolate bar', '3.5 oz', [2.99, 2.79, 1.99, 3.49, 3.99, 4.49], ['chocolate', 'chocolate bar']),
+
+  // Frozen
+  I('Frozen berries (mixed)', '16 oz', [3.49, 3.29, 2.99, 3.99, 4.49, 5.49], ['frozen berries', 'frozen strawberries', 'frozen fruit']),
+  I('Frozen broccoli', '16 oz', [1.99, 1.79, 1.99, 2.49, 2.79, 3.29], []),
+  I('Frozen pizza', 'each', [5.99, 5.49, 4.99, 6.99, 7.99, 8.99], ['pizza']),
+  I('Vanilla ice cream', '16 oz pint', [4.49, 4.29, 3.49, 4.99, 5.49, 6.49], ['ice cream']),
+  I('Frozen peas', '16 oz', [1.79, 1.59, 1.79, 2.29, 2.49, 2.99], ['peas']),
+
+  // Beverages
+  I('Orange juice', '52 oz', [4.29, 3.99, 3.99, 4.99, 5.49, 6.49], ['oj']),
+  I('Sparkling water', '8 pack', [3.99, 3.79, 3.49, 4.49, 4.99, 5.99], ['la croix', 'seltzer']),
+  I('Kombucha', '16 oz', [2.99, 2.79, 2.49, 3.29, 3.49, 4.29], []),
+
+  // Household (Trader Joe's carries a limited selection)
+  I('Paper towels', '6 rolls', [7.99, 6.99, null, 8.99, 9.99, 10.99], ['paper towel']),
+  I('Toilet paper', '12 rolls', [9.99, 8.99, null, 11.99, 12.99, 13.99], ['tp', 'bath tissue']),
+  I('Dish soap', '19 oz', [2.99, 2.79, 2.49, 3.49, 3.99, 4.49], ['dishwashing liquid']),
+  I('Laundry detergent', '92 oz', [11.99, 10.99, null, 13.99, 14.99, 16.99], ['detergent']),
+  I('Trash bags', '45 count', [8.99, 7.99, null, 9.99, 10.99, 11.99], ['garbage bags']),
+];
+
+const SAMPLE_LIST = [
+  'milk', 'eggs', '2x chicken breast', 'ground beef', 'bananas x3', 'avocados x4',
+  'baby spinach', 'bell peppers x2', 'sourdough bread', 'pasta', 'marinara',
+  'olive oil', 'greek yogurt', 'cheddar cheese', 'coffee', 'tortilla chips', 'salsa',
+].join('\n');
+
+// ---------------------------------------------------------------------------
+// State
+// ---------------------------------------------------------------------------
+const state = {
+  rows: [],          // [{ item, qty }]
+  unmatched: [],     // strings
+  overrides: {},     // { "itemName|storeKey": price }
+  customItems: [],   // imported products not in the built-in guide
+  enabledStores: new Set(STORES.map(s => s.key)),
+  pendingImport: null,
+};
+
+function loadSaved() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('simmer-cart-compare') || '{}');
+    if (saved.listText) document.getElementById('listInput').value = saved.listText;
+    if (saved.overrides) state.overrides = saved.overrides;
+    if (Array.isArray(saved.customItems)) state.customItems = saved.customItems;
+    if (saved.zip) document.getElementById('zipInput').value = saved.zip;
+    if (Array.isArray(saved.enabledStores) && saved.enabledStores.length) {
+      state.enabledStores = new Set(saved.enabledStores.filter(k => STORES.some(s => s.key === k)));
+    }
+  } catch (e) { /* corrupted storage — start fresh */ }
+}
+function persist() {
+  try {
+    localStorage.setItem('simmer-cart-compare', JSON.stringify({
+      listText: document.getElementById('listInput').value,
+      overrides: state.overrides,
+      customItems: state.customItems,
+      zip: document.getElementById('zipInput').value.trim(),
+      enabledStores: [...state.enabledStores],
+    }));
+  } catch (e) { /* storage unavailable */ }
+}
+
+// ---------------------------------------------------------------------------
+// List parsing & item matching
+// ---------------------------------------------------------------------------
+function normalize(s) {
+  return s.toLowerCase()
+    .replace(/[^a-z0-9%\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+function singularize(token) {
+  if (token.length > 3 && token.endsWith('es') && !token.endsWith('oes')) return token.slice(0, -2);
+  if (token.length > 2 && token.endsWith('s') && !token.endsWith('ss')) return token.slice(0, -1);
+  return token;
+}
+function tokens(s) {
+  const STOP = new Set(['of', 'a', 'the', 'some', 'fresh', 'organic', 'lb', 'lbs', 'pound', 'pounds', 'oz', 'bag', 'bags', 'pack']);
+  return normalize(s).split(' ').filter(t => t && !STOP.has(t)).map(singularize);
+}
+
+// Parse "2x milk", "milk x2", "milk (2)", "3 bananas" — but not "2% milk".
+function parseLine(raw) {
+  let line = raw.trim();
+  if (!line) return null;
+  let qty = 1;
+  let m;
+  if ((m = line.match(/^(\d+)\s*[xX]\s+(.+)$/))) { qty = +m[1]; line = m[2]; }
+  else if ((m = line.match(/^(\d+)\s+(?!%)(.+)$/)) && !/^\d+\s*%/.test(line)) { qty = +m[1]; line = m[2]; }
+  else if ((m = line.match(/^(.+?)\s*[xX]\s*(\d+)$/))) { qty = +m[2]; line = m[1]; }
+  else if ((m = line.match(/^(.+?)\s*\((\d+)\)$/))) { qty = +m[2]; line = m[1]; }
+  qty = Math.max(1, Math.min(99, qty || 1));
+  return { text: line.trim(), qty };
+}
+
+function allItems() { return ITEMS.concat(state.customItems); }
+
+function matchItem(text) {
+  const inputNorm = normalize(text);
+  const inputToks = tokens(text);
+  if (!inputToks.length) return null;
+  let best = null, bestScore = 0;
+  for (const item of allItems()) {
+    const candidates = [item.name, ...item.aliases];
+    for (const cand of candidates) {
+      const candNorm = normalize(cand);
+      let score = 0;
+      if (candNorm === inputNorm) score = 100;
+      else {
+        const candToks = tokens(cand);
+        if (!candToks.length) continue;
+        const candSet = new Set(candToks);
+        const overlap = inputToks.filter(t => candSet.has(t)).length;
+        if (overlap === 0) continue;
+        // Favor high coverage of both sides; exact-subset matches rank high.
+        const coverage = overlap / Math.max(inputToks.length, candToks.length);
+        const inputCovered = overlap / inputToks.length;
+        score = coverage * 60 + inputCovered * 30;
+      }
+      if (score > bestScore) { bestScore = score; best = item; }
+    }
+  }
+  return bestScore >= 45 ? best : null;
+}
+
+function buildRows() {
+  const lines = document.getElementById('listInput').value.split('\n');
+  const rowsByItem = new Map();
+  const unmatched = [];
+  for (const raw of lines) {
+    const parsed = parseLine(raw);
+    if (!parsed) continue;
+    const item = matchItem(parsed.text);
+    if (!item) { unmatched.push(parsed.text); continue; }
+    if (rowsByItem.has(item.name)) rowsByItem.get(item.name).qty += parsed.qty;
+    else rowsByItem.set(item.name, { item, qty: parsed.qty });
+  }
+  state.rows = [...rowsByItem.values()];
+  state.unmatched = unmatched;
+}
+
+// ---------------------------------------------------------------------------
+// Cart import — parse a copied cart page (Whole Foods/Amazon, Target,
+// Instacart, …) into { name, qty, price } entries.
+// ---------------------------------------------------------------------------
+const NOISE_RE = new RegExp('^(' + [
+  'delete', 'remove', 'save for later', 'saved for later.*', 'move to (cart|list)',
+  'add to (cart|list|registry)', 'compare with similar items?', 'in stock', 'out of stock',
+  'only \\d+ left.*', 'sponsored', 'subtotal.*', 'total.*', 'estimated.*', 'proceed to checkout',
+  'checkout', 'continue.*', 'sign in.*', 'gift.*', 'share', 'see (more|all).*', 'shop .*',
+  'price', 'item', 'items', 'qty', 'quantity', 'update', 'undo', 'added', 'save',
+  'new lower price', 'limited time deal', 'deal', 'coupon.*', 'save \\d+%.*', 'save \\$.*',
+  'free (delivery|shipping|returns).*', 'get it .*', 'fulfilled by .*', 'sold by .*',
+  'ships from .*', 'learn more', 'details', 'apply', 'no thanks', 'edit', 'change',
+  'substitutions?.*', 'best seller', "amazon.?s choice", 'climate pledge friendly',
+  'small business', 'whole foods market', 'amazon fresh', 'your items', 'shopping cart',
+  'cart', 'buy again', 'buy it again', 'deselect all', 'select all', 'checked', 'unchecked',
+  'delivery.*', 'pickup.*', 'shipping.*', 'availability.*', 'add instructions.*',
+].join('|') + ')$', 'i');
+
+const BRAND_PREFIX_RE = /^(365 (by whole foods market)?|whole foods market|good & gather|market pantry|favorite day|signature select|amazon (fresh|brand)|great value|simple truth( organic)?|o organics|private selection|trader joe'?s)[,:\s]+/i;
+const SIZE_ONLY_RE = /^\d+(\.\d+)?\s*(fl\s*oz|oz|lbs?|ct|count|pack|pk|g|kg|ml|l|each|ea|gal|gallon|dozen)\b.{0,12}$/i;
+
+function cleanImportName(line) {
+  let name = line.replace(BRAND_PREFIX_RE, '').replace(/\|/g, ' ').replace(/\s+/g, ' ').trim();
+  name = name.replace(/^[-–—•,.\s]+|[-–—•,\s]+$/g, '');
+  if (name.length > 80) name = name.slice(0, 80).replace(/\s+\S*$/, '') + '…';
+  return name;
+}
+function isNameCandidate(line) {
+  return line.length >= 6 && line.length <= 160 &&
+    /[a-zA-Z].*[a-zA-Z].*[a-zA-Z]/.test(line) &&
+    !/^\$/.test(line) && !/^https?:/i.test(line) &&
+    !SIZE_ONLY_RE.test(line) && !/^\d+(\.\d+)?$/.test(line);
+}
+
+function parseCartText(text) {
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  const entries = [];
+  let pendingName = null, pendingQty = null;
+  const applyQty = q => {
+    if (q < 1 || q > 99) return;
+    if (pendingName) pendingQty = q;
+    else if (entries.length) entries[entries.length - 1].qty = q;
+  };
+  for (const line of lines) {
+    if (line.length > 250) continue;
+    let m;
+    if ((m = line.match(/^(?:qty|quantity):?\s*(\d{1,2})\+?$/i))) { applyQty(+m[1]); continue; }
+    if (/^\d{1,2}$/.test(line)) { applyQty(+line); continue; }
+    if ((m = line.match(/^(\d{1,2})\s*[x×]\s*\$(\d{1,4}\.\d{2})/))) {
+      if (pendingName) {
+        entries.push({ raw: pendingName, price: +m[2], qty: +m[1] });
+        pendingName = null; pendingQty = null;
+      }
+      continue;
+    }
+    if (/^(was|list|reg\.?|typical|compare at)\b/i.test(line)) continue;
+    if (/^\$\d{1,4}(\.\d{1,2})?\s*\//.test(line)) continue;           // "$0.06/Fl Oz"
+    if (/^\(\$/.test(line)) continue;                                  // "($0.22/oz)"
+    if ((m = line.match(/^\$(\d{1,4}(?:,\d{3})*\.\d{2})\b/))) {
+      const price = parseFloat(m[1].replace(/,/g, ''));
+      if (pendingName && price > 0) {
+        entries.push({ raw: pendingName, price, qty: pendingQty || 1 });
+        pendingName = null; pendingQty = null;
+      }
+      continue;
+    }
+    if (NOISE_RE.test(line)) continue;
+    if (isNameCandidate(line)) { pendingName = cleanImportName(line); pendingQty = null; }
+  }
+  return entries.filter(e => e.raw && e.price >= 0.2 && e.price < 500);
+}
+
+// Looser matcher for long product titles ("365 Organic Whole Milk, 128 Fl Oz"):
+// every token of the catalog name/alias must appear in the title.
+function matchForImport(name) {
+  const inputToks = new Set(tokens(name));
+  if (!inputToks.size) return null;
+  let best = null, bestLen = 0, bestCovered = 0;
+  for (const item of allItems()) {
+    for (const cand of [item.name, ...item.aliases]) {
+      const candToks = tokens(cand);
+      if (!candToks.length || !candToks.every(t => inputToks.has(t))) continue;
+      const covered = candToks.length / inputToks.size;
+      if (candToks.length > bestLen || (candToks.length === bestLen && covered > bestCovered)) {
+        best = item; bestLen = candToks.length; bestCovered = covered;
+      }
+    }
+  }
+  return best;
+}
+
+function previewImport() {
+  const text = document.getElementById('importText').value;
+  const storeKey = document.getElementById('importStore').value;
+  const parsed = parseCartText(text);
+  const box = document.getElementById('importPreview');
+  if (!parsed.length) {
+    state.pendingImport = null;
+    box.innerHTML = '<p class="hint" style="color:#c0392b">No items found in that text. Make sure you copied the whole cart page (Ctrl/Cmd&#8209;A on the cart, then copy) and pasted everything.</p>';
+    return;
+  }
+  state.pendingImport = {
+    storeKey,
+    entries: parsed.map(e => {
+      const match = matchForImport(e.raw);
+      return { ...e, match: match ? match.name : null, useMatch: !!match, include: true };
+    }),
+  };
+  renderImportPreview();
+}
+
+function renderImportPreview() {
+  const box = document.getElementById('importPreview');
+  const imp = state.pendingImport;
+  if (!imp) { box.innerHTML = ''; return; }
+  const storeName = STORES.find(s => s.key === imp.storeKey).name;
+  let rows = '';
+  imp.entries.forEach((e, i) => {
+    const displayName = e.useMatch && e.match ? e.match : e.raw;
+    const tag = e.useMatch && e.match
+      ? '<span class="match-tag">matched to price guide</span>' +
+        (e.match !== e.raw ? '<span class="swap-link" data-i="' + i + '">keep my name instead</span>' : '')
+      : '<span class="match-tag new">new item (priced at ' + storeName + ' only)</span>' +
+        (e.match ? '<span class="swap-link" data-i="' + i + '">use “' + e.match + '”</span>' : '');
+    rows += '<tr>' +
+      '<td style="text-align:center"><input type="checkbox" data-i="' + i + '" class="inc-check"' + (e.include ? ' checked' : '') + '></td>' +
+      '<td class="p-name">' + displayName + (displayName !== e.raw ? '<span class="raw">from: ' + e.raw + '</span>' : '') + '<br>' + tag + '</td>' +
+      '<td style="text-align:center">' + e.qty + '</td>' +
+      '<td>' + fmt(e.price) + '</td></tr>';
+  });
+  const count = imp.entries.filter(e => e.include).length;
+  box.innerHTML =
+    '<p class="hint">Found <strong>' + imp.entries.length + ' items</strong> in your ' + storeName +
+    ' cart. Uncheck anything that isn\'t really a grocery item, then import.</p>' +
+    '<div class="table-scroll"><table><thead><tr><th></th><th style="text-align:left">Item</th><th style="text-align:center">Qty</th><th>Your price</th></tr></thead><tbody>' +
+    rows + '</tbody></table></div>' +
+    '<div class="controls"><button class="btn" id="confirmImportBtn">Add ' + count + ' item' + (count === 1 ? '' : 's') + ' to my list</button>' +
+    '<button class="btn secondary" id="cancelImportBtn">Cancel</button></div>';
+
+  box.querySelectorAll('.inc-check').forEach(cb => cb.addEventListener('change', () => {
+    imp.entries[+cb.dataset.i].include = cb.checked;
+    renderImportPreview();
+  }));
+  box.querySelectorAll('.swap-link').forEach(a => a.addEventListener('click', () => {
+    const e = imp.entries[+a.dataset.i];
+    e.useMatch = !e.useMatch;
+    renderImportPreview();
+  }));
+  document.getElementById('confirmImportBtn').addEventListener('click', confirmImport);
+  document.getElementById('cancelImportBtn').addEventListener('click', () => {
+    state.pendingImport = null;
+    renderImportPreview();
+  });
+}
+
+function confirmImport() {
+  const imp = state.pendingImport;
+  if (!imp) return;
+  const included = imp.entries.filter(e => e.include);
+  const listEl = document.getElementById('listInput');
+  const newLines = [];
+  for (const e of included) {
+    let lineName;
+    if (e.useMatch && e.match) {
+      lineName = e.match;
+      state.overrides[e.match + '|' + imp.storeKey] = e.price;
+    } else {
+      lineName = e.raw;
+      let custom = state.customItems.find(c => c.name === e.raw);
+      if (!custom) {
+        custom = { name: e.raw, unit: 'as purchased', aliases: [], custom: true,
+          prices: Object.fromEntries(STORES.map(s => [s.key, null])) };
+        state.customItems.push(custom);
+      }
+      custom.prices[imp.storeKey] = e.price;
+      delete state.overrides[e.raw + '|' + imp.storeKey];
+    }
+    newLines.push(e.qty > 1 ? e.qty + 'x ' + lineName : lineName);
+  }
+  const existing = listEl.value.trim();
+  listEl.value = (existing ? existing + '\n' : '') + newLines.join('\n');
+  state.pendingImport = null;
+  document.getElementById('importText').value = '';
+  document.getElementById('importBox').hidden = true;
+  renderImportPreview();
+  buildRows();
+  persist();
+  render();
+  if (state.rows.length) document.getElementById('resultsPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ---------------------------------------------------------------------------
+// Nearby stores by ZIP — free OpenStreetMap services (Nominatim + Overpass)
+// ---------------------------------------------------------------------------
+const KROGER_BANNERS = ['kroger', 'ralphs', 'fred meyer', 'king soopers', "fry's food", 'frys food',
+  "smith's", 'smiths food', 'qfc', 'quality food center', 'harris teeter', 'food 4 less', 'foods co',
+  'dillons', "baker's", 'gerbes', 'jayc', 'pay less super', 'metro market', "pick 'n save",
+  'pick n save', "mariano's", 'marianos', 'city market'];
+const CHAIN_MATCHERS = [
+  { key: 'wholefoods', test: n => n.includes('whole foods') },
+  { key: 'traderjoes', test: n => n.includes('trader joe') },
+  { key: 'sprouts',    test: n => n.includes('sprouts') },
+  { key: 'gelsons',    test: n => n.includes('gelson') },
+  { key: 'target',     test: n => /(^|\s)target($|\s)/.test(n) },
+  { key: 'kroger',     test: n => KROGER_BANNERS.some(b => n.includes(b)) },
+];
+const SEARCH_RADIUS_METERS = 16000; // ~10 miles
+
+function haversineMiles(lat1, lon1, lat2, lon2) {
+  const R = 3958.8, toRad = d => d * Math.PI / 180;
+  const dLat = toRad(lat2 - lat1), dLon = toRad(lon2 - lon1);
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+async function fetchWithTimeout(url, opts, ms) {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), ms);
+  try {
+    const res = await fetch(url, { ...opts, signal: ctrl.signal });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return await res.json();
+  } finally { clearTimeout(t); }
+}
+
+async function findNearbyStores() {
+  const zipEl = document.getElementById('zipInput');
+  const statusEl = document.getElementById('zipStatus');
+  const resultsEl = document.getElementById('zipResults');
+  const zip = zipEl.value.trim();
+  resultsEl.innerHTML = '';
+  if (!/^\d{5}$/.test(zip)) {
+    statusEl.className = 'status error';
+    statusEl.textContent = 'Please enter a 5-digit U.S. ZIP code.';
+    return;
+  }
+  const btn = document.getElementById('zipBtn');
+  btn.disabled = true;
+  statusEl.className = 'status';
+  statusEl.textContent = 'Locating ' + zip + '…';
+  try {
+    const geo = await fetchWithTimeout(
+      'https://nominatim.openstreetmap.org/search?postalcode=' + zip + '&country=us&format=json&limit=1',
+      { headers: { 'Accept': 'application/json' } }, 10000);
+    if (!geo.length) throw new Error('zip-not-found');
+    const lat = +geo[0].lat, lon = +geo[0].lon;
+
+    statusEl.textContent = 'Scanning grocery stores within 10 miles…';
+    const q = '[out:json][timeout:25];(' +
+      'nwr["shop"="supermarket"](around:' + SEARCH_RADIUS_METERS + ',' + lat + ',' + lon + ');' +
+      'nwr["shop"="department_store"](around:' + SEARCH_RADIUS_METERS + ',' + lat + ',' + lon + ');' +
+      ');out center tags;';
+    let data = null;
+    for (const endpoint of ['https://overpass-api.de/api/interpreter', 'https://overpass.kumi.systems/api/interpreter']) {
+      try {
+        data = await fetchWithTimeout(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: 'data=' + encodeURIComponent(q),
+        }, 30000);
+        break;
+      } catch (err) { /* try next endpoint */ }
+    }
+    if (!data) throw new Error('overpass-down');
+
+    const found = new Map(); // chainKey -> { count, minDist }
+    for (const el of data.elements || []) {
+      const tags = el.tags || {};
+      const label = ((tags.brand || '') + ' ' + (tags.name || '')).toLowerCase();
+      if (!label.trim()) continue;
+      const chain = CHAIN_MATCHERS.find(c => c.test(label));
+      if (!chain) continue;
+      const elat = el.lat != null ? el.lat : (el.center && el.center.lat);
+      const elon = el.lon != null ? el.lon : (el.center && el.center.lon);
+      if (elat == null) continue;
+      const dist = haversineMiles(lat, lon, elat, elon);
+      const cur = found.get(chain.key);
+      if (!cur) found.set(chain.key, { count: 1, minDist: dist });
+      else { cur.count++; cur.minDist = Math.min(cur.minDist, dist); }
+    }
+
+    let chips = '';
+    for (const s of STORES) {
+      const f = found.get(s.key);
+      if (f) {
+        chips += '<span class="chip">' + s.name + ' — ' + f.minDist.toFixed(1) + ' mi' +
+          (f.count > 1 ? ' (+' + (f.count - 1) + ' more)' : '') + '</span>';
+      } else {
+        chips += '<span class="chip absent">' + s.name + '</span>';
+      }
+    }
+    resultsEl.innerHTML = chips;
+
+    if (found.size === 0) {
+      statusEl.textContent = 'No matching chains found within 10 miles of ' + zip + ' — comparing all stores.';
+    } else {
+      state.enabledStores = new Set(found.keys());
+      statusEl.textContent = 'Comparing the ' + found.size + ' chain' + (found.size === 1 ? '' : 's') +
+        ' within 10 miles of ' + zip + '. Toggle stores below to override.';
+      renderToggles();
+      persist();
+      render();
+    }
+  } catch (err) {
+    statusEl.className = 'status error';
+    statusEl.textContent = err.message === 'zip-not-found'
+      ? 'Couldn\'t find that ZIP code — double-check it and try again.'
+      : 'Couldn\'t reach the free store-locator service (it rate-limits occasionally). Please try again in a minute.';
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Store search links — open the store's own site/app search for an item, so
+// users see their real local price and can tap it into the app. On phones
+// these typically open the retailer's app if installed.
+// ---------------------------------------------------------------------------
+const SEARCH_URLS = {
+  kroger:     q => 'https://www.kroger.com/search?query=' + q,
+  target:     q => 'https://www.target.com/s?searchTerm=' + q,
+  traderjoes: q => 'https://www.traderjoes.com/home/search?q=' + q + '&section=products',
+  sprouts:    q => 'https://shop.sprouts.com/search?search_term=' + q,
+  wholefoods: q => 'https://www.amazon.com/s?k=' + q + '&i=wholefoods',
+  gelsons:    q => 'https://www.instacart.com/store/gelsons/s?k=' + q,
+};
+function searchUrl(item, storeKey) {
+  const q = encodeURIComponent(item.name.replace(/[()]/g, ' ').replace(/\s+/g, ' ').trim());
+  return SEARCH_URLS[storeKey](q);
+}
+
+// ---------------------------------------------------------------------------
+// Pricing & analysis
+// ---------------------------------------------------------------------------
+function priceFor(item, storeKey) {
+  const key = item.name + '|' + storeKey;
+  if (key in state.overrides) return state.overrides[key];
+  return item.prices[storeKey];
+}
+function isEdited(item, storeKey) { return (item.name + '|' + storeKey) in state.overrides; }
+function fmt(n) { return '$' + n.toFixed(2); }
+
+function activeStores() { return STORES.filter(s => state.enabledStores.has(s.key)); }
+
+function analyze() {
+  const stores = activeStores();
+  const totals = {};
+  const missing = {};
+  stores.forEach(s => { totals[s.key] = 0; missing[s.key] = 0; });
+
+  let splitTotal = 0;
+  const splitByStore = {};
+
+  for (const row of state.rows) {
+    let minPrice = Infinity, minStore = null;
+    for (const s of stores) {
+      const p = priceFor(row.item, s.key);
+      if (p == null) { missing[s.key]++; continue; }
+      totals[s.key] += p * row.qty;
+      if (p < minPrice) { minPrice = p; minStore = s.key; }
+    }
+    if (minStore) {
+      splitTotal += minPrice * row.qty;
+      (splitByStore[minStore] = splitByStore[minStore] || []).push(row);
+    }
+  }
+  return { stores, totals, missing, splitTotal, splitByStore };
+}
+
+// ---------------------------------------------------------------------------
+// Rendering
+// ---------------------------------------------------------------------------
+function renderToggles() {
+  const box = document.getElementById('storeToggles');
+  box.innerHTML = '';
+  for (const s of STORES) {
+    const label = document.createElement('label');
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = state.enabledStores.has(s.key);
+    cb.addEventListener('change', () => {
+      if (cb.checked) state.enabledStores.add(s.key);
+      else if (state.enabledStores.size > 2) state.enabledStores.delete(s.key);
+      else cb.checked = true; // keep at least two stores to compare
+      persist();
+      render();
+    });
+    label.appendChild(cb);
+    label.appendChild(document.createTextNode(s.name));
+    box.appendChild(label);
+  }
+}
+
+function renderTotals(a) {
+  const grid = document.getElementById('totalsGrid');
+  grid.innerHTML = '';
+  const ranked = a.stores
+    .map(s => ({ store: s, total: a.totals[s.key], missing: a.missing[s.key] }))
+    .sort((x, y) => (x.missing === 0 ? 0 : 1) - (y.missing === 0 ? 0 : 1) || x.total - y.total);
+  const fullCarts = ranked.filter(r => r.missing === 0);
+  const winnerKey = fullCarts.length ? fullCarts[0].store.key : null;
+  const maxFull = fullCarts.length ? fullCarts[fullCarts.length - 1].total : null;
+
+  for (const r of ranked) {
+    const card = document.createElement('div');
+    card.className = 'total-card' + (r.store.key === winnerKey ? ' winner' : '');
+    let metaHtml;
+    if (r.missing > 0) {
+      metaHtml = '<div class="meta warn">' + r.missing + ' item' + (r.missing > 1 ? 's' : '') + ' not priced here</div>';
+    } else if (r.store.key === winnerKey && fullCarts.length === 1) {
+      metaHtml = '<div class="meta">only store with every item priced</div>';
+    } else if (r.store.key === winnerKey && maxFull != null && maxFull > r.total) {
+      metaHtml = '<div class="meta">saves ' + fmt(maxFull - r.total) + ' vs priciest</div>';
+    } else if (maxFull != null && winnerKey) {
+      const winnerTotal = fullCarts[0].total;
+      metaHtml = '<div class="meta">+' + fmt(r.total - winnerTotal) + ' vs cheapest</div>';
+    } else {
+      metaHtml = '<div class="meta">all items priced</div>';
+    }
+    card.innerHTML =
+      (r.store.key === winnerKey ? '<div class="badge">Cheapest full cart</div>' : '') +
+      '<h3>' + r.store.name + '</h3>' +
+      '<div class="amount">' + fmt(r.total) + '</div>' + metaHtml;
+    grid.appendChild(card);
+  }
+
+  // Smart split
+  const split = document.getElementById('splitCard');
+  const storeCount = Object.keys(a.splitByStore).length;
+  if (storeCount > 1 && winnerKey) {
+    const bestSingle = fullCarts[0].total;
+    const saved = bestSingle - a.splitTotal;
+    let chips = '';
+    for (const [key, rows] of Object.entries(a.splitByStore)) {
+      const name = STORES.find(s => s.key === key).name;
+      chips += '<span class="chip"><strong>' + name + '</strong>: ' + rows.length + ' item' + (rows.length > 1 ? 's' : '') + '</span>';
+    }
+    split.style.display = '';
+    split.innerHTML =
+      '<h3>💡 Smart split: shop ' + storeCount + ' stores, pay <span class="amount">' + fmt(a.splitTotal) + '</span></h3>' +
+      '<div style="font-size:13px;color:#777">Buying every item wherever it\'s cheapest saves <strong>' + fmt(saved) +
+      '</strong> vs the cheapest single store' + (saved < 5 ? ' — probably not worth the extra trips.' : '.') + '</div>' +
+      '<div class="chips">' + chips + '</div>';
+  } else {
+    split.style.display = 'none';
+  }
+}
+
+function renderTable(a) {
+  const table = document.getElementById('compareTable');
+  table.innerHTML = '';
+  const stores = a.stores;
+
+  const thead = table.createTHead();
+  const hr = thead.insertRow();
+  hr.innerHTML = '<th>Item</th><th style="text-align:center">Qty</th>' +
+    stores.map(s => '<th>' + s.name + '</th>').join('') + '<th>You save</th>';
+
+  const tbody = table.createTBody();
+  for (const row of state.rows) {
+    const tr = tbody.insertRow();
+    const prices = stores.map(s => priceFor(row.item, s.key));
+    const valid = prices.filter(p => p != null);
+    const min = Math.min(...valid);
+    const max = Math.max(...valid);
+
+    const itemCell = tr.insertCell();
+    itemCell.className = 'item-cell';
+    itemCell.innerHTML = row.item.name + '<span class="unit">' + row.item.unit + '</span>';
+
+    const qtyCell = tr.insertCell();
+    qtyCell.className = 'qty-cell';
+    const dec = document.createElement('button'); dec.className = 'qty-btn'; dec.textContent = '−';
+    const num = document.createElement('span'); num.className = 'qty-num'; num.textContent = row.qty;
+    const inc = document.createElement('button'); inc.className = 'qty-btn'; inc.textContent = '+';
+    dec.addEventListener('click', () => { row.qty = Math.max(1, row.qty - 1); render(); });
+    inc.addEventListener('click', () => { row.qty = Math.min(99, row.qty + 1); render(); });
+    qtyCell.append(dec, ' ', num, ' ', inc);
+
+    stores.forEach((s, i) => {
+      const td = tr.insertCell();
+      const p = prices[i];
+      if (p == null) {
+        td.className = 'price na';
+        td.textContent = '—';
+        td.title = 'No price yet — tap to add one for this store';
+        td.style.cursor = 'pointer';
+        td.addEventListener('click', () => beginEdit(td, row, s));
+        return;
+      }
+      td.className = 'price' + (p === min ? ' best' : '');
+      td.innerHTML = fmt(p * row.qty) + (isEdited(row.item, s.key) ? '<span class="edited-dot">●</span>' : '');
+      td.title = row.qty > 1 ? fmt(p) + ' each — tap to edit unit price' : 'Tap to edit price';
+      td.addEventListener('click', () => beginEdit(td, row, s));
+    });
+
+    const save = tr.insertCell();
+    save.className = 'savings-cell';
+    save.textContent = valid.length > 1 && max > min ? fmt((max - min) * row.qty) : '—';
+  }
+
+  // Footer totals
+  const tfoot = table.createTFoot();
+  const fr = tfoot.insertRow();
+  const fullTotals = stores.map(s => a.missing[s.key] === 0 ? a.totals[s.key] : null);
+  const validTotals = fullTotals.filter(t => t != null);
+  const minTotal = validTotals.length ? Math.min(...validTotals) : null;
+  fr.innerHTML = '<td>Cart total</td><td></td>' +
+    stores.map((s, i) => {
+      const isBest = fullTotals[i] != null && fullTotals[i] === minTotal;
+      const star = a.missing[s.key] > 0 ? '*' : '';
+      return '<td class="' + (isBest ? 'best-total' : '') + '">' + fmt(a.totals[s.key]) + star + '</td>';
+    }).join('') + '<td></td>';
+  if (stores.some(s => a.missing[s.key] > 0)) {
+    const note = tfoot.insertRow();
+    note.innerHTML = '<td colspan="' + (stores.length + 3) + '" style="font-weight:400;font-size:11px;color:#999;border:none">* total excludes items this store doesn\'t carry</td>';
+  }
+}
+
+function beginEdit(td, row, store) {
+  if (td.querySelector('input')) return;
+  const current = priceFor(row.item, store.key);
+  td.innerHTML = '';
+  const input = document.createElement('input');
+  input.type = 'number';
+  input.step = '0.01';
+  input.min = '0';
+  input.inputMode = 'decimal';
+  input.value = current != null ? current.toFixed(2) : '';
+  td.appendChild(input);
+
+  const link = document.createElement('a');
+  link.className = 'check-link';
+  link.href = searchUrl(row.item, store.key);
+  link.target = '_blank';
+  link.rel = 'noopener';
+  link.textContent = 'check ' + store.name + ' ↗';
+  link.title = 'Opens ' + store.name + '\'s own search for this item — their site/app shows your local price';
+  // Open on mousedown/touchstart (before blur re-renders the row) and keep
+  // the input focused so the user can type the price when they come back.
+  const openStore = e => { e.preventDefault(); window.open(link.href, '_blank', 'noopener'); };
+  link.addEventListener('mousedown', openStore);
+  link.addEventListener('touchstart', openStore, { passive: false });
+  link.addEventListener('click', e => e.preventDefault());
+  td.appendChild(link);
+  input.focus();
+  input.select();
+  const commit = () => {
+    const v = parseFloat(input.value);
+    const key = row.item.name + '|' + store.key;
+    if (!isNaN(v) && v >= 0) {
+      if (v === row.item.prices[store.key]) delete state.overrides[key];
+      else state.overrides[key] = Math.round(v * 100) / 100;
+    }
+    persist();
+    render();
+  };
+  input.addEventListener('blur', commit);
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') input.blur();
+    if (e.key === 'Escape') { input.removeEventListener('blur', commit); render(); }
+  });
+}
+
+function renderUnmatched() {
+  const box = document.getElementById('unmatchedBox');
+  if (!state.unmatched.length) { box.style.display = 'none'; return; }
+  box.style.display = '';
+  box.innerHTML = '<strong>Not priced yet (' + state.unmatched.length + '):</strong> ' +
+    state.unmatched.map(u => '“' + u + '”').join(', ') +
+    ' — these aren\'t in our price guide, so they\'re left out of the totals. Try a more common name (e.g. “chicken breast” instead of a brand).';
+}
+
+function render() {
+  const hasRows = state.rows.length > 0;
+  document.getElementById('resultsPanel').style.display = hasRows ? '' : 'none';
+  document.getElementById('tablePanel').style.display = (hasRows || state.unmatched.length) ? '' : 'none';
+  if (!hasRows && !state.unmatched.length) return;
+  if (hasRows) {
+    const a = analyze();
+    renderTotals(a);
+    renderTable(a);
+  } else {
+    document.getElementById('compareTable').innerHTML = '';
+    document.getElementById('resultsPanel').style.display = 'none';
+  }
+  renderUnmatched();
+}
+
+// ---------------------------------------------------------------------------
+// Wire up
+// ---------------------------------------------------------------------------
+document.getElementById('compareBtn').addEventListener('click', () => {
+  buildRows();
+  persist();
+  render();
+  if (state.rows.length || state.unmatched.length) {
+    document.getElementById('resultsPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+});
+document.getElementById('sampleBtn').addEventListener('click', () => {
+  document.getElementById('listInput').value = SAMPLE_LIST;
+  buildRows();
+  persist();
+  render();
+});
+document.getElementById('clearBtn').addEventListener('click', () => {
+  document.getElementById('listInput').value = '';
+  state.rows = [];
+  state.unmatched = [];
+  persist();
+  render();
+});
+document.getElementById('listInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) document.getElementById('compareBtn').click();
+});
+
+// Import controls
+const importStoreSel = document.getElementById('importStore');
+for (const s of STORES) {
+  const opt = document.createElement('option');
+  opt.value = s.key;
+  opt.textContent = s.name;
+  importStoreSel.appendChild(opt);
+}
+importStoreSel.value = 'wholefoods';
+document.getElementById('importToggleBtn').addEventListener('click', () => {
+  const box = document.getElementById('importBox');
+  box.hidden = !box.hidden;
+  if (!box.hidden) document.getElementById('importText').focus();
+});
+document.getElementById('previewImportBtn').addEventListener('click', previewImport);
+
+// Nearby stores controls
+document.getElementById('zipBtn').addEventListener('click', findNearbyStores);
+document.getElementById('zipInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') findNearbyStores();
+});
+
+loadSaved();
+renderToggles();
+if (document.getElementById('listInput').value.trim()) { buildRows(); render(); }
+
+// ---------------------------------------------------------------------------
+// App install (PWA)
+// ---------------------------------------------------------------------------
+if ('serviceWorker' in navigator && location.protocol === 'https:') {
+  navigator.serviceWorker.register('sw.js').catch(() => { /* offline support is optional */ });
+}
+(function installTip() {
+  const tip = document.getElementById('installTip');
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+  const isPhone = /iphone|ipad|android/i.test(navigator.userAgent);
+  let dismissed = false;
+  try { dismissed = localStorage.getItem('cartcompare-install-tip') === 'dismissed'; } catch (e) {}
+  if (!isStandalone && isPhone && !dismissed) tip.hidden = false;
+  document.getElementById('installTipClose').addEventListener('click', () => {
+    tip.hidden = true;
+    try { localStorage.setItem('cartcompare-install-tip', 'dismissed'); } catch (e) {}
+  });
+})();
+</script>
+</body>
+</html>
