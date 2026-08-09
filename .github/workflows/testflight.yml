@@ -31,19 +31,54 @@ jobs:
           npm ci
           npx cap sync ios
 
-      - name: Write App Store Connect API key
+      - name: Prepare signing credentials
         env:
           ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
-          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          RAW_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          RAW_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          RAW_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
-          mkdir -p "$HOME/private_keys"
-          printf '%s' "$ASC_KEY_P8" > "$HOME/private_keys/AuthKey_${ASC_KEY_ID}.p8"
+          # Trim stray whitespace from the ID secrets and export for later steps
+          {
+            echo "ASC_KEY_ID=$(printf %s "$RAW_KEY_ID" | tr -d '[:space:]')"
+            echo "ASC_ISSUER_ID=$(printf %s "$RAW_ISSUER_ID" | tr -d '[:space:]')"
+            echo "APPLE_TEAM_ID=$(printf %s "$RAW_TEAM_ID" | tr -d '[:space:]')"
+          } >> "$GITHUB_ENV"
+
+          # Rebuild a valid PEM from the pasted key, tolerating lost newlines,
+          # missing BEGIN/END lines, CRLF endings, or base64-wrapped file content.
+          export ASC_KEY_ID_TRIMMED="$(printf %s "$RAW_KEY_ID" | tr -d '[:space:]')"
+          python3 - <<'PYEOF'
+          import os, re, base64, sys, textwrap
+          s = os.environ['ASC_KEY_P8'].replace('\\n', '\n').replace('\r', '').strip()
+          if 'BEGIN' not in s:
+              try:
+                  dec = base64.b64decode(''.join(s.split())).decode('utf-8', 'ignore')
+                  if 'BEGIN' in dec:
+                      s = dec.replace('\r', '').strip()
+              except Exception:
+                  pass
+          m = re.search(r'-----BEGIN[A-Z ]*-----(.*?)-----END', s, re.S)
+          body = m.group(1) if m else s
+          b64 = ''.join(body.split())
+          try:
+              raw = base64.b64decode(b64, validate=True)
+              assert len(raw) > 50
+          except Exception:
+              print('::error::The ASC_KEY_P8 secret is not a readable key. Delete the secret and re-add it: open the downloaded AuthKey_*.p8 file in TextEdit, Select All, Copy, and paste everything into the secret value.')
+              sys.exit(1)
+          pem = '-----BEGIN PRIVATE KEY-----\n' + '\n'.join(textwrap.wrap(b64, 64)) + '\n-----END PRIVATE KEY-----\n'
+          path = os.path.expanduser('~/private_keys/AuthKey_%s.p8' % os.environ['ASC_KEY_ID_TRIMMED'])
+          os.makedirs(os.path.dirname(path), exist_ok=True)
+          with open(path, 'w') as f:
+              f.write(pem)
+          print('API key file rebuilt')
+          PYEOF
+          openssl pkey -in "$HOME/private_keys/AuthKey_${ASC_KEY_ID_TRIMMED}.p8" -noout \
+            && echo "API key validates as a proper private key" \
+            || { echo "::error::Key material decodes but is not a valid private key — re-download a fresh API key from App Store Connect and update the ASC_KEY_P8 secret."; exit 1; }
 
       - name: Archive (cloud-managed signing)
-        env:
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
-          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
         run: |
           xcodebuild archive \
             -project ios/App/App.xcodeproj \
@@ -61,10 +96,6 @@ jobs:
             -authenticationKeyIssuerID "$ASC_ISSUER_ID"
 
       - name: Upload to TestFlight
-        env:
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
-          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
         run: |
           cat > "$RUNNER_TEMP/export.plist" <<EOF
           <?xml version="1.0" encoding="UTF-8"?>
