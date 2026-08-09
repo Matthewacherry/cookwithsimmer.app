@@ -24,6 +24,10 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>CartCompare reads the cart screenshots you choose so it can find the items and prices in them. Screenshots are processed entirely on your device and never uploaded.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>CartCompare can use your camera to capture a price tag or receipt so it can read the prices. Photos are processed entirely on your device and never uploaded.</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>UIApplicationSceneManifest</key>
