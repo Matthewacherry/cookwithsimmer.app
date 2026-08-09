@@ -146,6 +146,11 @@
     .view-toggle button.active { background: #e0573a; border-color: #e0573a; color: #fff; }
     td.best-store-label { text-align: right; }
     .store-tag { display: block; font-size: 10px; color: #999; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; }
+    .compare-select {
+      font: inherit; font-size: 12px; font-weight: 600; color: #e0573a;
+      border: 1px solid #f0d9cd; border-radius: 10px; background: #fff5ee;
+      padding: 3px 6px; max-width: 130px;
+    }
     table { border-collapse: collapse; width: 100%; font-size: 14px; min-width: 640px; }
     th, td { padding: 8px 10px; text-align: right; border-bottom: 1px solid #f4ece4; white-space: nowrap; }
     th { font-size: 12px; text-transform: uppercase; letter-spacing: 0.4px; color: #888; }
@@ -277,7 +282,6 @@
 // Stores
 // ---------------------------------------------------------------------------
 const STORES = [
-  { key: 'aldi',       name: 'Aldi' },
   { key: 'walmart',    name: 'Walmart' },
   { key: 'kroger',     name: 'Kroger' },
   { key: 'target',     name: 'Target' },
@@ -461,6 +465,7 @@ const state = {
   enabledStores: new Set(STORES.map(s => s.key)),
   pendingImport: null,
   viewMode: 'compact',
+  compareStore: 'best',
 };
 
 function loadSaved() {
@@ -471,6 +476,7 @@ function loadSaved() {
     if (Array.isArray(saved.customItems)) state.customItems = saved.customItems;
     if (saved.zip) document.getElementById('zipInput').value = saved.zip;
     if (saved.viewMode === 'all' || saved.viewMode === 'compact') state.viewMode = saved.viewMode;
+    if (saved.compareStore && (saved.compareStore === 'best' || STORES.some(st => st.key === saved.compareStore))) state.compareStore = saved.compareStore;
     if (Array.isArray(saved.enabledStores) && saved.enabledStores.length) {
       state.enabledStores = new Set(saved.enabledStores.filter(k => STORES.some(s => s.key === k)));
       const knownRoster = Array.isArray(saved.roster) ? saved.roster : LEGACY_ROSTER;
@@ -488,6 +494,7 @@ function persist() {
       enabledStores: [...state.enabledStores],
       roster: STORES.map(st => st.key),
       viewMode: state.viewMode,
+      compareStore: state.compareStore,
     }));
   } catch (e) { /* storage unavailable */ }
 }
@@ -824,7 +831,6 @@ const KROGER_BANNERS = ['kroger', 'ralphs', 'fred meyer', 'king soopers', "fry's
 const CHAIN_MATCHERS = [
   { key: 'walmart',    test: n => n.includes('walmart') || n.includes('wal-mart') },
   { key: 'albertsons', test: n => ['albertsons', 'vons', 'pavilions', 'safeway'].some(b => n.includes(b)) },
-  { key: 'aldi',       test: n => /(^|\s)aldi($|\s)/.test(n) },
   { key: 'erewhon',    test: n => n.includes('erewhon') },
   { key: 'wholefoods', test: n => n.includes('whole foods') },
   { key: 'traderjoes', test: n => n.includes('trader joe') },
@@ -946,7 +952,6 @@ async function findNearbyStores() {
 // these typically open the retailer's app if installed.
 // ---------------------------------------------------------------------------
 const SEARCH_URLS = {
-  aldi:       q => 'https://new.aldi.us/results?q=' + q,
   walmart:    q => 'https://www.walmart.com/search?q=' + q,
   albertsons: q => 'https://www.vons.com/shop/search-results.html?q=' + q,
   erewhon:    q => 'https://www.erewhon.com/search?q=' + q,
@@ -1120,9 +1125,25 @@ function renderCompactTable(a) {
   const anchor = STORES.find(s => s.key === anchorKey);
   const others = a.stores.filter(s => s.key !== anchorKey);
 
+  const pickKey = state.compareStore !== 'best' && a.stores.some(st => st.key === state.compareStore && st.key !== anchorKey)
+    ? state.compareStore : 'best';
   const thead = table.createTHead();
-  thead.insertRow().innerHTML = '<th>Item</th><th style="text-align:center">Qty</th>' +
-    '<th>' + anchor.name + '</th><th>Best elsewhere</th><th>You save</th>';
+  const hrow = thead.insertRow();
+  hrow.innerHTML = '<th>Item</th><th style="text-align:center">Qty</th>' +
+    '<th>' + anchor.name + ' <span class="store-tag">yours</span></th><th id="compareStoreTh"></th><th>You save</th>';
+  const sel = document.createElement('select');
+  sel.className = 'compare-select';
+  const optBest = document.createElement('option');
+  optBest.value = 'best'; optBest.textContent = 'Best elsewhere';
+  sel.appendChild(optBest);
+  for (const st of others) {
+    const o = document.createElement('option');
+    o.value = st.key; o.textContent = st.name;
+    sel.appendChild(o);
+  }
+  sel.value = pickKey;
+  sel.addEventListener('change', () => { state.compareStore = sel.value; persist(); render(); });
+  hrow.querySelector('#compareStoreTh').appendChild(sel);
 
   let anchorTotal = 0, bestTotal = 0;
   const tbody = table.createTBody();
@@ -1143,9 +1164,15 @@ function renderCompactTable(a) {
 
     const anchorP = priceFor(row.item, anchorKey);
     let bestP = null, bestStore = null;
-    for (const s of others) {
-      const p = priceFor(row.item, s.key);
-      if (p != null && (bestP == null || p < bestP)) { bestP = p; bestStore = s; }
+    if (pickKey !== 'best') {
+      const st = STORES.find(x => x.key === pickKey);
+      const p = priceFor(row.item, pickKey);
+      if (p != null) { bestP = p; bestStore = st; }
+    } else {
+      for (const s of others) {
+        const p = priceFor(row.item, s.key);
+        if (p != null && (bestP == null || p < bestP)) { bestP = p; bestStore = s; }
+      }
     }
     if (anchorP != null) anchorTotal += anchorP * row.qty;
     bestTotal += (bestP != null ? bestP : (anchorP || 0)) * row.qty;
