@@ -553,7 +553,7 @@ function isNameCandidate(line) {
 function parseCartText(text) {
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
   const entries = [];
-  let pendingName = null, pendingQty = null;
+  let pendingName = null, pendingQty = null, sinceAnchor = 99;
   const applyQty = q => {
     if (q < 1 || q > 99) return;
     if (pendingName) pendingQty = q;
@@ -561,13 +561,25 @@ function parseCartText(text) {
   };
   for (const line of lines) {
     if (line.length > 250) continue;
+    sinceAnchor++;
     let m;
     if ((m = line.match(/^(?:qty|oty|aty|quantity)[.:]?\s*(\d{1,2})\+?(?:\s+\D.*)?$/i))) { applyQty(+m[1]); continue; }
-    if (/^\d{1,2}$/.test(line)) { applyQty(+line); continue; }
+    // Stepper rows from store-app screenshots: "- 2 +", "1 + Delete"
+    if ((m = line.match(/^[-–—]?\s{0,3}(\d{1,2})\s*\+(?:\s+delete)?$/i))) { applyQty(+m[1]); continue; }
+    // Weight steppers ("0.25 lb +") — keep qty 1, the price line carries the info
+    if (/^[-–—]?\s*\d*\.?\d+\s*(?:lb|lbs|oz|kg|g)\s*\+/i.test(line)) continue;
+    // Bare number is only a quantity when it sits near an item (nav badges aren't)
+    if (/^\d{1,2}$/.test(line)) { if (+line <= 24 && sinceAnchor <= 3) applyQty(+line); continue; }
+    // Brand bylines under product names ("by Tropicana", "by Fresh Produce…")
+    if (/^by\s+\S/i.test(line)) continue;
+    // Promo labels and app navigation bars
+    if (/^(?:exclusive\s+)?prime(?:\s+price)?$/i.test(line)) continue;
+    if (/^exclusive prime price$/i.test(line)) continue;
+    if (/^(?:(?:home|you|deals|cart|aisles?|search|browse|lists?|account)\s*)+$/i.test(line)) continue;
     if ((m = line.match(/^(\d{1,2})\s*[x×]\s*\$(\d{1,4}\.\d{2})/))) {
       if (pendingName) {
         entries.push({ raw: pendingName, price: +m[2], qty: +m[1] });
-        pendingName = null; pendingQty = null;
+        pendingName = null; pendingQty = null; sinceAnchor = 0;
       }
       continue;
     }
@@ -575,9 +587,16 @@ function parseCartText(text) {
       const namePart = m[1].replace(/[\s\u2022|-]+$/, '').trim();
       if (!NOISE_RE.test(namePart) && !/^(was|list|reg\.?|typical|compare at)\b/i.test(namePart) && isNameCandidate(namePart)) {
         entries.push({ raw: cleanImportName(namePart), price: parseFloat(m[2].replace(/,/g, '')), qty: pendingQty || 1 });
-        pendingName = null; pendingQty = null;
+        pendingName = null; pendingQty = null; sinceAnchor = 0;
         continue;
       }
+    }
+    if ((m = line.match(/^\$(\d{1,4}(?:,\d{3})*\.\d{2})\s*\/\s*(?:lb|lbs)\b/i))) {
+      if (pendingName) {
+        entries.push({ raw: pendingName + ' (per lb)', price: parseFloat(m[1].replace(/,/g, '')), qty: pendingQty || 1 });
+        pendingName = null; pendingQty = null; sinceAnchor = 0;
+      }
+      continue;
     }
     if (/^(was|list|reg\.?|typical|compare at)\b/i.test(line)) continue;
     if (/^\$\d{1,4}(\.\d{1,2})?\s*\//.test(line)) continue;           // "$0.06/Fl Oz"
@@ -586,12 +605,12 @@ function parseCartText(text) {
       const price = parseFloat(m[1].replace(/,/g, ''));
       if (pendingName && price > 0) {
         entries.push({ raw: pendingName, price, qty: pendingQty || 1 });
-        pendingName = null; pendingQty = null;
+        pendingName = null; pendingQty = null; sinceAnchor = 0;
       }
       continue;
     }
     if (NOISE_RE.test(line)) continue;
-    if (isNameCandidate(line)) { pendingName = cleanImportName(line); pendingQty = null; }
+    if (isNameCandidate(line)) { pendingName = cleanImportName(line); pendingQty = null; sinceAnchor = 0; }
   }
   const seen = new Set();
   return entries.filter(e => {
