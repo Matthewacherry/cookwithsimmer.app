@@ -82,6 +82,12 @@
     .nearby .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
     .nearby .chip { background: #f4fbf7; border: 1px solid #cde7d8; border-radius: 12px; font-size: 12px; padding: 3px 10px; color: #2e6b4f; }
     .nearby .chip.absent { background: #faf4ee; border-color: #eee0d4; color: #999; text-decoration: line-through; }
+    .nearby-nudge {
+      background: #fff8f0; border: 1px solid #f0e0c8; border-radius: 10px;
+      padding: 10px 14px; font-size: 13px; color: #8a6a2f; margin-bottom: 14px;
+    }
+    .nearby-nudge[hidden] { display: none; }
+    .nearby-nudge a { color: #e0573a; font-weight: 600; }
 
     /* Cart import */
     .import-box { margin-top: 14px; border-top: 1px solid #f4ece4; padding-top: 14px; }
@@ -227,6 +233,7 @@
     <div class="panel" id="resultsPanel" style="display:none">
       <h2>Cart totals by store</h2>
       <p class="hint">Ranked cheapest first. A store must carry every matched item to win “Cheapest full cart”.</p>
+      <div class="nearby-nudge" id="nearbyNudge" hidden>📍 Comparing all six chains — including ones that may not be near you. <a href="#" id="nudgeZipLink">Enter your ZIP</a> to compare only the stores in your area.</div>
       <div class="totals-grid" id="totalsGrid"></div>
       <div class="split-card" id="splitCard"></div>
     </div>
@@ -1110,6 +1117,9 @@ function render() {
     const a = analyze();
     renderTotals(a);
     renderTable(a);
+    const nudge = document.getElementById('nearbyNudge');
+    const zipUnset = !document.getElementById('zipInput').value.trim();
+    nudge.hidden = !(zipUnset && state.enabledStores.size === STORES.length);
   } else {
     document.getElementById('compareTable').innerHTML = '';
     document.getElementById('resultsPanel').style.display = 'none';
@@ -1213,6 +1223,12 @@ document.getElementById('previewImportBtn').addEventListener('click', previewImp
 
 // Nearby stores controls
 document.getElementById('zipBtn').addEventListener('click', findNearbyStores);
+document.getElementById('nudgeZipLink').addEventListener('click', e => {
+  e.preventDefault();
+  const zipEl = document.getElementById('zipInput');
+  zipEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  zipEl.focus();
+});
 document.getElementById('zipInput').addEventListener('keydown', e => {
   if (e.key === 'Enter') findNearbyStores();
 });
