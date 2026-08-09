@@ -1198,6 +1198,12 @@ document.getElementById('clearBtn').addEventListener('click', () => {
   document.getElementById('listInput').value = '';
   state.rows = [];
   state.unmatched = [];
+  if (state.customItems.length || Object.keys(state.overrides).length) {
+    if (confirm('Also erase previously imported items and price edits, for a completely fresh start?')) {
+      state.customItems = [];
+      state.overrides = {};
+    }
+  }
   persist();
   render();
 });

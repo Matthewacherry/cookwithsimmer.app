@@ -42,6 +42,32 @@ public class TextRecognizerPlugin: CAPPlugin, CAPBridgedPlugin {
 
             // Group fragments that sit on the same visual row, then order each
             // row left-to-right, so "Item name   $7.79" stays on one line.
+            // Store-app cart rows put the product PHOTO on the left and the
+            // listing text on the right; Vision also reads text printed on the
+            // packaging in the photo. When a row has substantial right-column
+            // text, drop its left-column fragments (package-art junk) — but
+            // keep rows like quantity steppers whose only real text is left.
+            let stepperChars = CharacterSet(charactersIn: "0123456789+-\u{2013}\u{2014}. lboz")
+            func flush(_ row: [Fragment]) -> String {
+                let sorted = row.sorted { $0.minX < $1.minX }
+                let rightFrags = sorted.filter { $0.minX >= 0.38 }
+                let rightText = rightFrags.map { $0.text }.joined(separator: "  ")
+                if rightText.count >= 10 {
+                    return rightText
+                }
+                if rightFrags.isEmpty {
+                    // Row lives entirely in the product-photo column: keep it only
+                    // if it reads like a quantity stepper ("- 2 +", "0.25 lb +"),
+                    // otherwise it's text printed on the packaging image.
+                    let joined = sorted.map { $0.text }.joined(separator: "  ")
+                    let lower = joined.lowercased()
+                    let looksLikeStepper = lower.count <= 14 &&
+                        lower.rangeOfCharacter(from: .decimalDigits) != nil &&
+                        lower.unicodeScalars.allSatisfy { stepperChars.contains($0) }
+                    return looksLikeStepper ? joined : ""
+                }
+                return sorted.map { $0.text }.joined(separator: "  ")
+            }
             var lines: [String] = []
             var row: [Fragment] = []
             var rowY: CGFloat = 2.0
@@ -51,15 +77,15 @@ public class TextRecognizerPlugin: CAPPlugin, CAPBridgedPlugin {
                     if row.isEmpty { rowY = frag.midY }
                     row.append(frag)
                 } else {
-                    lines.append(row.sorted { $0.minX < $1.minX }.map { $0.text }.joined(separator: "  "))
+                    lines.append(flush(row))
                     row = [frag]
                     rowY = frag.midY
                 }
             }
             if !row.isEmpty {
-                lines.append(row.sorted { $0.minX < $1.minX }.map { $0.text }.joined(separator: "  "))
+                lines.append(flush(row))
             }
-            call.resolve(["text": lines.joined(separator: "\n")])
+            call.resolve(["text": lines.filter { !$0.isEmpty }.joined(separator: "\n")])
         }
         request.recognitionLevel = .accurate
         request.usesLanguageCorrection = true
