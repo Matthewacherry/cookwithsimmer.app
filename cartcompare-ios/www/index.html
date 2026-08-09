@@ -197,7 +197,7 @@
 
       <div class="import-box" id="importBox" hidden>
         <h2 style="font-size:16px">Import a live cart</h2>
-        <p class="hint">Already have a cart going at Whole Foods, Target, or Instacart? Copy your cart and paste it below — we'll pull out the items, quantities, and the <strong>exact prices you're being charged</strong>, so that store's column shows your real prices, not estimates.</p>
+        <p class="hint">Already have a cart going at Whole Foods, Target, or Instacart? <strong>Easiest way:</strong> scroll through your cart taking screenshots, then tap <strong>📸 Import from screenshots</strong> below and pick them all — items, quantities, and prices are read right off the images, entirely on your phone. Or copy your cart's text and paste it below — we'll pull out the items, quantities, and the <strong>exact prices you're being charged</strong>, so that store's column shows your real prices, not estimates.</p>
         <p class="hint"><strong>On your phone:</strong> open the cart in your browser (not the store's app), press and hold to start selecting, drag the handles across your items, copy, and paste here. It doesn't need to be tidy — a rough selection with extra page junk is fine, we filter it out.<br>
         <strong>On a computer:</strong> open the cart page, select everything (Ctrl/Cmd&#8209;A), copy, and paste here.</p>
         <label style="font-size:14px;font-weight:600;color:#555">This cart is from:
@@ -206,7 +206,9 @@
         <textarea id="importText" placeholder="Paste your copied cart page here…"></textarea>
         <div class="controls">
           <button class="btn" id="previewImportBtn">Preview import</button>
+          <button class="btn secondary" id="shotBtn" hidden>📸 Import from screenshots</button>
         </div>
+        <input type="file" id="shotInput" accept="image/*" multiple hidden>
         <div class="import-preview" id="importPreview"></div>
       </div>
 
@@ -553,7 +555,7 @@ function parseCartText(text) {
   for (const line of lines) {
     if (line.length > 250) continue;
     let m;
-    if ((m = line.match(/^(?:qty|quantity):?\s*(\d{1,2})\+?$/i))) { applyQty(+m[1]); continue; }
+    if ((m = line.match(/^(?:qty|oty|aty|quantity)[.:]?\s*(\d{1,2})\+?(?:\s+\D.*)?$/i))) { applyQty(+m[1]); continue; }
     if (/^\d{1,2}$/.test(line)) { applyQty(+line); continue; }
     if ((m = line.match(/^(\d{1,2})\s*[x×]\s*\$(\d{1,4}\.\d{2})/))) {
       if (pendingName) {
@@ -561,6 +563,14 @@ function parseCartText(text) {
         pendingName = null; pendingQty = null;
       }
       continue;
+    }
+    if ((m = line.match(/^(.+?)\s+\$(\d{1,4}(?:,\d{3})*\.\d{2})\b[^%]*$/))) {
+      const namePart = m[1].replace(/[\s\u2022|-]+$/, '').trim();
+      if (!NOISE_RE.test(namePart) && !/^(was|list|reg\.?|typical|compare at)\b/i.test(namePart) && isNameCandidate(namePart)) {
+        entries.push({ raw: cleanImportName(namePart), price: parseFloat(m[2].replace(/,/g, '')), qty: pendingQty || 1 });
+        pendingName = null; pendingQty = null;
+        continue;
+      }
     }
     if (/^(was|list|reg\.?|typical|compare at)\b/i.test(line)) continue;
     if (/^\$\d{1,4}(\.\d{1,2})?\s*\//.test(line)) continue;           // "$0.06/Fl Oz"
@@ -576,7 +586,14 @@ function parseCartText(text) {
     if (NOISE_RE.test(line)) continue;
     if (isNameCandidate(line)) { pendingName = cleanImportName(line); pendingQty = null; }
   }
-  return entries.filter(e => e.raw && e.price >= 0.2 && e.price < 500);
+  const seen = new Set();
+  return entries.filter(e => {
+    if (!(e.raw && e.price >= 0.2 && e.price < 500)) return false;
+    const k = e.raw.toLowerCase() + '|' + e.price + '|' + e.qty;
+    if (seen.has(k)) return false;   // same item read twice from overlapping screenshots
+    seen.add(k);
+    return true;
+  });
 }
 
 // Looser matcher for long product titles ("365 Organic Whole Milk, 128 Fl Oz"):
@@ -1143,6 +1160,56 @@ document.getElementById('importToggleBtn').addEventListener('click', () => {
   if (!box.hidden) document.getElementById('importText').focus();
 });
 document.getElementById('previewImportBtn').addEventListener('click', previewImport);
+
+// Screenshot import — native app only: on-device OCR via the TextRecognizer plugin.
+(function screenshotImport() {
+  const shotBtn = document.getElementById('shotBtn');
+  const shotInput = document.getElementById('shotInput');
+  if (!window.Capacitor) return;
+  shotBtn.hidden = false;
+  let recognizer = null;
+  const getRecognizer = () => {
+    if (recognizer) return recognizer;
+    try {
+      if (window.Capacitor.registerPlugin) recognizer = window.Capacitor.registerPlugin('TextRecognizer');
+      else if (window.Capacitor.Plugins) recognizer = window.Capacitor.Plugins.TextRecognizer;
+    } catch (e) { /* plugin unavailable */ }
+    return recognizer;
+  };
+  const fileToBase64 = file => new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result).split(',')[1]);
+    r.onerror = () => reject(new Error('could not read file'));
+    r.readAsDataURL(file);
+  });
+  shotBtn.addEventListener('click', () => shotInput.click());
+  shotInput.addEventListener('change', async () => {
+    const files = [...shotInput.files];
+    shotInput.value = '';
+    if (!files.length) return;
+    const rec = getRecognizer();
+    if (!rec) { alert('Screenshot reading needs the latest version of the app.'); return; }
+    shotBtn.disabled = true;
+    const texts = [];
+    try {
+      for (let i = 0; i < files.length; i++) {
+        shotBtn.textContent = 'Reading screenshot ' + (i + 1) + ' of ' + files.length + '…';
+        const b64 = await fileToBase64(files[i]);
+        const res = await rec.recognize({ image: b64 });
+        if (res && res.text) texts.push(res.text);
+      }
+      const combined = texts.join('\n');
+      if (!combined.trim()) { alert("Couldn't read any text in those screenshots — make sure they show the cart items and prices."); return; }
+      document.getElementById('importText').value = combined;
+      previewImport();
+    } catch (err) {
+      alert('Screenshot reading failed: ' + (err && err.message ? err.message : err));
+    } finally {
+      shotBtn.disabled = false;
+      shotBtn.textContent = '📸 Import from screenshots';
+    }
+  });
+})();
 
 // Nearby stores controls
 document.getElementById('zipBtn').addEventListener('click', findNearbyStores);
