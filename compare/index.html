@@ -132,7 +132,20 @@
     .split-card .chip { background: white; border: 1px solid #eee0d4; border-radius: 12px; font-size: 12px; padding: 3px 10px; color: #555; }
 
     /* Comparison table */
-    .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .table-scroll { overflow: auto; -webkit-overflow-scrolling: touch; max-height: 72vh; position: relative; }
+    thead th { position: sticky; top: 0; background: #fff; z-index: 3; }
+    thead th:first-child { left: 0; z-index: 5; }
+    tbody td:first-child, tfoot td:first-child { position: sticky; left: 0; background: #fff; z-index: 2; }
+    tfoot td { position: sticky; bottom: 0; background: #fff; z-index: 3; }
+    tfoot td:first-child { z-index: 5; }
+    .view-toggle { display: flex; gap: 6px; margin-bottom: 12px; }
+    .view-toggle button {
+      font-size: 13px; font-weight: 600; padding: 6px 14px; border-radius: 16px;
+      border: 1px solid #eee0d4; background: #faf4ee; color: #777; cursor: pointer;
+    }
+    .view-toggle button.active { background: #e0573a; border-color: #e0573a; color: #fff; }
+    td.best-store-label { text-align: right; }
+    .store-tag { display: block; font-size: 10px; color: #999; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; }
     table { border-collapse: collapse; width: 100%; font-size: 14px; min-width: 640px; }
     th, td { padding: 8px 10px; text-align: right; border-bottom: 1px solid #f4ece4; white-space: nowrap; }
     th { font-size: 12px; text-transform: uppercase; letter-spacing: 0.4px; color: #888; }
@@ -241,6 +254,10 @@
     <div class="panel" id="tablePanel" style="display:none">
       <h2>Line-by-line comparison</h2>
       <p class="hint">The cheapest store for each item is highlighted. Tap any price to adjust it — you'll also get a <strong>“check&nbsp;↗”</strong> button that opens that store's own search for the item (on your phone it opens their app or site, showing your local store's real price). Type in what you see and totals update instantly. Prices marked <span style="color:#c8860a">●</span> are yours.</p>
+      <div class="view-toggle">
+        <button id="viewCompactBtn">Best price</button>
+        <button id="viewAllBtn">All stores</button>
+      </div>
       <div class="table-scroll"><table id="compareTable"></table></div>
       <div class="unmatched" id="unmatchedBox" style="display:none"></div>
       <p class="disclaimer">Prices are representative estimates for a typical U.S. metro area (updated August 2026), not live store data. Actual prices vary by location, brand, and sales — tap any price to correct it for your area.</p>
@@ -397,6 +414,34 @@ const ITEMS = [
   I('Dish soap', '19 oz', [2.99, 2.79, 2.49, 3.49, 3.99, 4.49, 2.79, 3.39, 2.49, 6.39], ['dishwashing liquid']),
   I('Laundry detergent', '92 oz', [11.99, 10.99, null, 13.99, 14.99, 16.99, 11.29, 13.79, 9.79, null], ['detergent']),
   I('Trash bags', '45 count', [8.99, 7.99, null, 9.99, 10.99, 11.99, 8.49, 10.29, 7.39, null], ['garbage bags']),
+
+  // Branded & specialty staples (from real cart imports)
+  I('Cheerios Honey Nut', '10.8 oz box', [4.99, 4.79, null, 5.49, 5.39, 5.99, 4.49, 5.49, 3.99, null], ['cheerios', 'honey nut cheerios', 'cheerios honey nut breakfast cereal']),
+  I('De Cecco pasta', '16 oz', [2.99, 2.79, null, 3.49, 3.99, 3.49, 2.69, 3.29, null, 4.99], ['de cecco', 'acini di pepe', 'de cecco acini di pepe']),
+  I('FAGE Total split cup', '5.3 oz', [1.69, 1.59, null, 1.79, 1.99, 1.99, 1.49, 1.79, 1.39, 2.99], ['fage', 'fage total split cup', 'fage split cup']),
+  I('Horizon Organic whole milk', '64 oz', [5.99, 5.79, null, 6.49, 6.99, 6.99, 5.49, 6.49, null, 8.99], ['horizon organic', 'horizon organic milk', 'milk whole dha organic']),
+  I('Tropicana orange juice', '52 oz', [4.19, 3.99, null, 4.49, 4.99, 4.99, 3.89, 4.49, 3.29, null], ['tropicana', 'tropicana pure premium', 'pure premium orange juice']),
+  I('Zespri SunGold kiwi', '2 lb', [6.99, 6.49, null, 6.99, 7.99, 8.99, 5.99, 7.49, 4.99, 9.99], ['zespri', 'sungold kiwi', 'zespri sungold kiwi']),
+  I('Gold kiwi', '1 lb', [4.99, 4.49, 3.49, 4.49, 5.99, 6.99, 4.29, 5.49, 3.99, 7.99], ['gold kiwi', 'organic gold kiwi']),
+  I('Nectarines', 'per lb', [2.99, 2.79, 2.49, 2.49, 3.99, 3.99, 2.49, 3.29, 1.99, 4.99], ['nectarine', 'yellow nectarine', 'organic yellow nectarine']),
+  I('Red plums', 'per lb', [2.99, 2.79, 2.49, 2.99, 4.99, 3.99, 2.49, 3.29, 1.99, 4.99], ['plum', 'plums', 'red plum', 'organic red plum']),
+  I('Parsnips', 'per lb', [2.49, 2.29, 1.99, 2.29, 3.69, 2.99, 1.99, 2.79, 1.79, 4.49], ['parsnip', 'parsnip root', 'organic parsnip root']),
+  I('Fresh oregano', '0.75 oz', [2.49, 2.29, 1.99, 2.49, 2.99, 2.99, 1.99, 2.79, null, 3.49], ['oregano', 'herb oregano', 'herb oregano organic']),
+  I('Honeycrisp apples', 'per lb', [2.99, 2.79, 2.49, 2.49, 3.99, 3.99, 2.69, 3.29, 2.19, 4.99], ['honeycrisp', 'honeycrisp apple', 'organic honeycrisp apple']),
+  I('Limes (1 lb bag)', '1 lb bag', [2.99, 2.79, 2.49, 2.99, 4.99, 3.99, 2.49, 3.29, 1.99, 5.99], ['organic limes', 'limes 1 lb bag', 'lime bag']),
+  I('Alexia potato puffs', '19 oz', [5.99, 5.49, null, 6.49, 7.99, 6.99, 4.99, 5.99, null, null], ['alexia foods', 'potato puffs', 'alexia potato puffs']),
+  I('Feel Good Foods tempura chicken', '10 oz', [9.99, 9.49, null, 10.99, 11.99, 12.99, 8.99, 10.99, null, 13.99], ['feel good foods', 'tempura chicken']),
+  I('Feel Good Foods mac & cheese bites', '8 oz', [8.99, 8.49, null, 9.99, 9.99, 10.99, 7.99, 9.49, null, 12.99], ['mac cheese bites', 'mac and cheese bites', 'cheese bites']),
+  I('So Delicious CocoWhip', '9 oz', [4.99, 4.79, null, 5.49, 5.99, 5.99, 4.49, 5.29, null, 6.99], ['cocowhip', 'so delicious cocowhip', 'dairy free cocowhip']),
+  I('Fever-Tree ginger beer', '4 pack', [6.49, 5.99, null, 6.49, 6.79, 6.99, 5.79, 6.49, null, 7.99], ['fever tree', 'fever-tree', 'ginger beer']),
+  I('Once Upon a Farm pouch', '3.2 oz', [2.99, 2.89, null, 3.29, 3.29, 3.49, 2.79, 3.19, null, 3.99], ['once upon a farm', 'baby fruit blend', 'once upon a farm organic']),
+  I('Applegate turkey bacon', '8 oz', [6.99, 6.49, 5.49, 6.99, 9.99, 7.99, 5.99, 6.99, 4.49, 9.99], ['applegate organic', 'uncured turkey', 'turkey bacon']),
+  I('Cabot seriously sharp cheddar', '8 oz', [4.49, 4.29, null, 4.99, 6.99, 5.49, 3.99, 4.79, null, 7.99], ['cabot', 'seriously sharp', 'cabot vermont cheddar']),
+  I('Stonyfield kids yogurt tubes', '8 ct', [5.99, 5.49, null, 6.29, 6.29, 6.49, 4.99, 5.99, null, 7.49], ['stonyfield', 'yogurt tubes', 'kids yogurt tubes']),
+  I("Mary's ground turkey breast", '16 oz', [8.99, null, null, 9.99, 10.99, 10.99, null, 9.99, null, 13.99], ['marys turkey', 'organic ground turkey breast']),
+  I("Mary's chicken drumsticks", 'per lb', [3.99, null, null, 4.49, 4.99, 4.99, null, 4.29, null, 6.99], ['drumsticks', 'chicken drumsticks', 'organic chicken drumsticks']),
+  I("Mary's boneless skinless chicken", 'per lb', [8.99, null, null, 8.99, 9.99, 10.99, null, 9.49, null, 14.99], ['marys chicken', 'boneless skinless', 'heirloom chicken']),
+  I('Creamer potatoes', '48 oz bag', [4.49, 4.29, 3.99, 4.99, 5.99, 5.49, 3.99, 4.99, 3.49, 6.99], ['creamer potato', 'yellow creamer potato', 'creamer potato bag']),
 ];
 
 const SAMPLE_LIST = [
@@ -415,6 +460,7 @@ const state = {
   customItems: [],   // imported products not in the built-in guide
   enabledStores: new Set(STORES.map(s => s.key)),
   pendingImport: null,
+  viewMode: 'compact',
 };
 
 function loadSaved() {
@@ -424,6 +470,7 @@ function loadSaved() {
     if (saved.overrides) state.overrides = saved.overrides;
     if (Array.isArray(saved.customItems)) state.customItems = saved.customItems;
     if (saved.zip) document.getElementById('zipInput').value = saved.zip;
+    if (saved.viewMode === 'all' || saved.viewMode === 'compact') state.viewMode = saved.viewMode;
     if (Array.isArray(saved.enabledStores) && saved.enabledStores.length) {
       state.enabledStores = new Set(saved.enabledStores.filter(k => STORES.some(s => s.key === k)));
       const knownRoster = Array.isArray(saved.roster) ? saved.roster : LEGACY_ROSTER;
@@ -440,6 +487,7 @@ function persist() {
       zip: document.getElementById('zipInput').value.trim(),
       enabledStores: [...state.enabledStores],
       roster: STORES.map(st => st.key),
+      viewMode: state.viewMode,
     }));
   } catch (e) { /* storage unavailable */ }
 }
@@ -545,8 +593,9 @@ const NOISE_RE = new RegExp('^(' + [
 const BRAND_PREFIX_RE = /^(365 (by whole foods market)?|whole foods market|good & gather|market pantry|favorite day|signature select|amazon (fresh|brand)|great value|simple truth( organic)?|o organics|private selection|trader joe'?s)[,:\s]+/i;
 const SIZE_ONLY_RE = /^\d+(\.\d+)?\s*(fl\s*oz|oz|lbs?|ct|count|pack|pk|g|kg|ml|l|each|ea|gal|gallon|dozen)\b.{0,12}$/i;
 
+const HEADER_BLEED_RE = /^(?:(?:whole foods|market|deals|cart|aisles?|ais\w*|home|you|search|browse|account|[+x\u00d7\u2715])\s+)+/i;
 function cleanImportName(line) {
-  let name = line.replace(BRAND_PREFIX_RE, '').replace(/\|/g, ' ').replace(/\s+/g, ' ').trim();
+  let name = line.replace(HEADER_BLEED_RE, '').replace(BRAND_PREFIX_RE, '').replace(/\|/g, ' ').replace(/\s+/g, ' ').trim();
   name = name.replace(/^[-–—•,.\s]+|[-–—•,\s]+$/g, '');
   if (name.length > 80) name = name.slice(0, 80).replace(/\s+\S*$/, '') + '…';
   return name;
@@ -655,6 +704,7 @@ function matchForImport(name) {
     for (const cand of [item.name, ...item.aliases]) {
       const candToks = tokens(cand);
       if (!candToks.length || !candToks.every(t => inputToks.has(t))) continue;
+      if (candToks.length === 1 && inputToks.size > 5) continue; // one word can't claim a long branded title
       const covered = candToks.length / inputToks.size;
       if (candToks.length > bestLen || (candToks.length === bestLen && covered > bestCovered)) {
         best = item; bestLen = candToks.length; bestCovered = covered;
@@ -1029,7 +1079,96 @@ function renderTotals(a) {
   }
 }
 
+function anchorStoreKey() {
+  const counts = {};
+  for (const key of Object.keys(state.overrides)) {
+    const storeKey = key.slice(key.lastIndexOf('|') + 1);
+    counts[storeKey] = (counts[storeKey] || 0) + 1;
+  }
+  let best = null, bestN = 0;
+  for (const s of activeStores()) {
+    const n = counts[s.key] || 0;
+    if (n > bestN) { best = s.key; bestN = n; }
+  }
+  return best || (activeStores()[0] && activeStores()[0].key);
+}
+
+function renderCompactTable(a) {
+  const table = document.getElementById('compareTable');
+  table.innerHTML = '';
+  const anchorKey = anchorStoreKey();
+  const anchor = STORES.find(s => s.key === anchorKey);
+  const others = a.stores.filter(s => s.key !== anchorKey);
+
+  const thead = table.createTHead();
+  thead.insertRow().innerHTML = '<th>Item</th><th style="text-align:center">Qty</th>' +
+    '<th>' + anchor.name + '</th><th>Best elsewhere</th><th>You save</th>';
+
+  let anchorTotal = 0, bestTotal = 0;
+  const tbody = table.createTBody();
+  for (const row of state.rows) {
+    const tr = tbody.insertRow();
+    const itemCell = tr.insertCell();
+    itemCell.className = 'item-cell';
+    itemCell.innerHTML = row.item.name + '<span class="unit">' + row.item.unit + '</span>';
+
+    const qtyCell = tr.insertCell();
+    qtyCell.className = 'qty-cell';
+    const dec = document.createElement('button'); dec.className = 'qty-btn'; dec.textContent = '−';
+    const num = document.createElement('span'); num.className = 'qty-num'; num.textContent = row.qty;
+    const inc = document.createElement('button'); inc.className = 'qty-btn'; inc.textContent = '+';
+    dec.addEventListener('click', () => { row.qty = Math.max(1, row.qty - 1); render(); });
+    inc.addEventListener('click', () => { row.qty = Math.min(99, row.qty + 1); render(); });
+    qtyCell.append(dec, ' ', num, ' ', inc);
+
+    const anchorP = priceFor(row.item, anchorKey);
+    let bestP = null, bestStore = null;
+    for (const s of others) {
+      const p = priceFor(row.item, s.key);
+      if (p != null && (bestP == null || p < bestP)) { bestP = p; bestStore = s; }
+    }
+    if (anchorP != null) anchorTotal += anchorP * row.qty;
+    bestTotal += (bestP != null ? bestP : (anchorP || 0)) * row.qty;
+
+    const aCell = tr.insertCell();
+    if (anchorP == null) {
+      aCell.className = 'price na';
+      aCell.textContent = '—';
+      aCell.style.cursor = 'pointer';
+      aCell.addEventListener('click', () => beginEdit(aCell, row, anchor));
+    } else {
+      aCell.className = 'price' + (bestP == null || anchorP <= bestP ? ' best' : '');
+      aCell.innerHTML = fmt(anchorP * row.qty) + (isEdited(row.item, anchorKey) ? '<span class="edited-dot">●</span>' : '');
+      aCell.addEventListener('click', () => beginEdit(aCell, row, anchor));
+    }
+
+    const bCell = tr.insertCell();
+    bCell.className = 'best-store-label price' + (bestP != null && (anchorP == null || bestP < anchorP) ? ' best' : '');
+    if (bestP == null) {
+      bCell.textContent = '—';
+    } else {
+      bCell.innerHTML = fmt(bestP * row.qty) + (isEdited(row.item, bestStore.key) ? '<span class="edited-dot">●</span>' : '') +
+        '<span class="store-tag">' + bestStore.name + '</span>';
+      const bs = bestStore;
+      bCell.addEventListener('click', () => beginEdit(bCell, row, bs));
+    }
+
+    const save = tr.insertCell();
+    save.className = 'savings-cell';
+    save.textContent = anchorP != null && bestP != null && anchorP > bestP ? fmt((anchorP - bestP) * row.qty) : '—';
+  }
+
+  const tfoot = table.createTFoot();
+  const fr = tfoot.insertRow();
+  fr.innerHTML = '<td>Cart total</td><td></td><td>' + fmt(anchorTotal) + '</td>' +
+    '<td class="best-total">' + fmt(bestTotal) + '</td>' +
+    '<td class="savings-cell">' + (anchorTotal > bestTotal ? fmt(anchorTotal - bestTotal) : '—') + '</td>';
+}
+
 function renderTable(a) {
+  document.getElementById('viewCompactBtn').classList.toggle('active', state.viewMode === 'compact');
+  document.getElementById('viewAllBtn').classList.toggle('active', state.viewMode !== 'compact');
+  if (state.viewMode === 'compact') { renderCompactTable(a); return; }
   const table = document.getElementById('compareTable');
   table.innerHTML = '';
   const stores = a.stores;
@@ -1274,6 +1413,8 @@ document.getElementById('previewImportBtn').addEventListener('click', previewImp
 })();
 
 // Nearby stores controls
+document.getElementById('viewCompactBtn').addEventListener('click', () => { state.viewMode = 'compact'; persist(); render(); });
+document.getElementById('viewAllBtn').addEventListener('click', () => { state.viewMode = 'all'; persist(); render(); });
 document.getElementById('zipBtn').addEventListener('click', findNearbyStores);
 document.getElementById('nudgeZipLink').addEventListener('click', e => {
   e.preventDefault();
